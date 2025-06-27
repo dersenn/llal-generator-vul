@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLAL Generator - Vul</title>
+  <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+  <aside id="controls">
+    <div id="sketch-selector">
+      <h3>Sketch Selection</h3>
+      <select id="sketch-select">
+        <option value="firework">Firework (vul1)</option>
+        <option value="arc">Arc Text (vul2)</option>
+      </select>
+    </div>
+    <div id="sketch-controls">
+      <!-- Sketch-specific controls will be loaded here -->
+    </div>
+  </aside>
+
+  <div id="hash-display">
+    <!-- Current hash will be displayed here -->
+  </div>
+
+  <script src="assets/js/engine.js"></script>
+  <script src="assets/svg-text-to-path/dist/svg-text-to-path-fontkit.js"></script>
+  <script src="https://unpkg.com/opentype.js"></script>
+  
+  <!-- Load sketch classes -->
+  <script src="sketches/firework.js"></script>
+  <script src="sketches/arc.js"></script>
+  
+  <!-- Load manager and main -->
+  <script src="js/sketch-manager.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html> 

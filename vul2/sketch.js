@@ -13,41 +13,28 @@ if (useSeed) {
 }
 
 
+// === DPI-BASED SCALING ===
+// Set your target DPI here (72 for screen, 300 for print, etc.)
+const DPI = 72;
+const mmToPx = DPI / 25.4; // 1 mm in px at chosen DPI
+
+
 // MEASUREMENTS FOR PRINT
 
-const docWidth = 306
-const docHeight = 275
-const aspect = docWidth / docHeight
+const docWidth = 306; // mm
+const docHeight = 285; // mm
+const aspect = docWidth / docHeight;
 
-// Calculate dimensions to fit the browser window while maintaining aspect ratio
-const maxWidth = window.innerWidth * 0.9 // 90% of window width
-const maxHeight = window.innerHeight * 0.9 // 90% of window height
-
-let scaledWidth, scaledHeight
-if (maxWidth / maxHeight > aspect) {
-  // Height is the limiting factor
-  scaledHeight = maxHeight
-  scaledWidth = scaledHeight * aspect
-} else {
-  // Width is the limiting factor
-  scaledWidth = maxWidth
-  scaledHeight = scaledWidth / aspect
-}
-
-console.log(aspect, docWidth / aspect)
-
-// SETUP SVG
-
+// Set SVG size to document size in px at chosen DPI
 const setup = {
-      id: 'mySVG',
-      parent: document.body,
-      width: scaledWidth,
-      height: scaledHeight,
-      presAspect: 'xMidYMid meet', // Changed to better handle aspect ratio
+  id: 'mySVG',
+  parent: document.body,
+  width: docWidth * mmToPx,
+  height: docHeight * mmToPx,
+  presAspect: 'xMidYMid meet',
 }
 
 let svg = new SVG(setup)
-
 
 
 // SETUP SKETCH
@@ -55,45 +42,61 @@ let svg = new SVG(setup)
 let defs = document.createElementNS(svg.ns, 'defs')
 svg.stage.prepend(defs)
 
-// Firework settings
-const useFilter = true // Make filter optional again
-const useBlanks = true
+
+const useFilter = false
+const useBlanks = false
 const useCircles = false
 
-const blanksProb = rndInt(10, 50) // Probability of blank elements
+const blanksProb = rndInt(40, 75)
 
-const nRays = rndInt(5, 15) // Number of rays in the firework
-const nElements = rndInt(2, 10) // Number of elements per ray
-const centerX = scaledWidth / 2
-const centerY = scaledHeight / 2
-const maxRadius = Math.min(scaledWidth, scaledHeight) * 0.4 // Maximum radius of the firework
+const borderTop = 0
 
-// Calculate base font size
-const baseFontSize = rndInt(10, 30) // Starting font size
-const fontSizeScale = 1.5 // How much to increase font size per element
+const wdths = [50, 100, 150, 200]
+const nCols = 20
+const nRows = 60
+const fSize = ((setup.height - borderTop) / nRows) * 1.5 +'px'
+// const fSize = (100 / nRows) * 1.5 +'vh'
+const lOff = '.66em'
 
 const colBG = '#ffffff'
 const colFG = '#000000'
 
+document.body.style['background-color'] = '#eee'
 svg.stage.style['font-family'] = 'LLAL-linear'
 svg.stage.style['background-color'] = colBG
+
+
+let a = nVec(0, 0)
+let txt = 'LLAL'
+
+let cols = []
+
 
 let letters = document.createElementNS(svg.ns, 'g')
 letters.setAttribute('id', 'letters')
 svg.stage.append(letters)
 
+let circles = document.createElementNS(svg.ns, 'g')
+circles.setAttribute('id', 'circles')
+
+
+
 // FILTER STUFF
 
 let fSet = {
+  rows: nRows,
+  blnkProb: blanksProb,
   seed: Math.round(rnd()*100),
   freqX: Math.round((rndInt(40, 100)/10000)*100000)/100000,
   freqY: Math.round((rndInt(40, 100)/10000)*100000)/100000,
+  // bFreq: `${rnd()/100} ${rnd()/100}`,
   nOct: rndInt(5,20),
   scale: rndInt(75,120)
 }
 
+
 if (useFilter) {
-  // Create turbulence filter
+
   let swirl = document.createElementNS(svg.ns, 'filter')
   swirl.setAttribute('id', 'swirl')
   swirl.setAttribute('width', svg.w)
@@ -107,52 +110,83 @@ if (useFilter) {
   turb.setAttribute('color-interpolation-filters', 'sRGB')
   turb.setAttribute('result', 'turbulence')
 
+
   let disp = document.createElementNS(svg.ns, 'feDisplacementMap')
   disp.setAttribute('in', 'SourceGraphic')
   disp.setAttribute('in2', 'turbulence')
   disp.setAttribute('scale', fSet.scale)
+
   disp.setAttribute('color-interpolation-filters', 'sRGB')
 
   swirl.append(turb, disp)
   defs.append(swirl)
 
   letters.setAttribute('style', 'filter: url(#swirl)')
+  circles.setAttribute('style', 'filter: url(#swirl)')
 }
 
-// Create firework pattern
-for (let ray = 0; ray < nRays; ray++) {
-  const angle = (ray / nRays) * Math.PI * 2
-  let currentRadius = 0
-  
-  for (let element = 0; element < nElements; element++) {
-    const x = centerX + Math.cos(angle) * currentRadius
-    const y = centerY + Math.sin(angle) * currentRadius
-    
-    // Calculate font size based on element position
-    const elementFontSize = baseFontSize * Math.pow(fontSizeScale, element)
-    
-    let text = document.createElementNS(svg.ns, 'text')
-    text.setAttribute('x', x)
-    text.setAttribute('y', y)
-    text.setAttribute('style', `font-size: ${elementFontSize}px; transform-origin: ${x}px ${y}px; transform: rotate(${angle}rad)`)
-    
-    let span = document.createElementNS(svg.ns, 'tspan')
-    let fill = colFG
-    if(useBlanks) {
-      if(coinToss(blanksProb)) {
-        fill = colBG
-      }
-    }
-    span.setAttribute('style', `font-variation-settings: 'wdth' ${rndInt(50, 200)}; fill: ${fill}`)
-    span.innerHTML = 'LLAL'
-    text.append(span)
-    letters.append(text)
-    
-    // Calculate the width of this element and add it to the radius for the next element
-    const bbox = text.getBBox()
-    currentRadius += bbox.width
-  }
+
+// === CONE ARC TEXT MODULE ===
+
+function arcPath(cx, cy, r, startAngle, endAngle, sweepFlag = 0) {
+  // Angles in degrees, 0° = right, 90° = down, 180° = left, 270° = up
+  // sweepFlag: 0 = shorter arc, 1 = longer arc
+  const start = {
+    x: cx + r * Math.cos(rad(startAngle)),
+    y: cy + r * Math.sin(rad(startAngle))
+  };
+  const end = {
+    x: cx + r * Math.cos(rad(endAngle)),
+    y: cy + r * Math.sin(rad(endAngle))
+  };
+  const largeArcFlag = (Math.abs(endAngle - startAngle) > 180) ? 1 : 0;
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} ${sweepFlag} ${end.x} ${end.y}`;
 }
+
+function makeArc(cx, cy, r, startAngle, endAngle, sweepFlag = 0) {
+  const path = document.createElementNS(svg.ns, 'path');
+  path.setAttribute('d', arcPath(cx, cy, r, startAngle, endAngle, sweepFlag));
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', '#f00');
+  path.setAttribute('stroke-width', 5);
+  if (drawControlPoints) {
+    const start = {
+      x: cx + r * Math.cos(rad(startAngle)),
+      y: cy + r * Math.sin(rad(startAngle))
+    };
+    const end = {
+      x: cx + r * Math.cos(rad(endAngle)),
+      y: cy + r * Math.sin(rad(endAngle))
+    };
+    svg.makeCircle(start, 8, '#f00');
+    svg.makeCircle(end, 8, '#00f');
+  }
+  svg.stage.append(path)
+}
+
+
+const rOuter = 376 * mmToPx;
+const rInner = 100 * mmToPx;
+const cx = setup.width / 2;
+const cy = setup.height - rOuter; // center above SVG, arc at bottom
+
+const arcStart = 114;   // bottom-right of circle
+const arcEnd = 66;      // bottom-left of circle
+
+const drawControlPoints = true
+
+// Draw reference circle
+svg.makeCircle({ x: cx, y: cy }, rOuter, 'none', '#0f0');
+
+makeArc(cx, cy, rOuter, arcStart, arcEnd)
+makeArc(cx, cy, rInner, arcStart, arcEnd)
+
+
+
+
+
+
+
 
 
 
@@ -166,12 +200,12 @@ reloadBtn.classList.add('btn')
 reloadBtn.setAttribute('id', 'btnreload')
 reloadBtn.append('new')
 
-for (const property in fSet) {
-  const prop = document.createElement('li')
-  prop.append(`${property}: ${fSet[property]}`)
-  values.append(prop)
-  // console.log(`${property}: ${fSet[property]}`)
-}
+// for (const property in fSet) {
+//   const prop = document.createElement('li')
+//   prop.append(`${property}: ${fSet[property]}`)
+//   values.append(prop)
+//   // console.log(`${property}: ${fSet[property]}`)
+// }
 
 const btnLi = document.createElement('li')
 btnLi.append(reloadBtn)
@@ -189,15 +223,16 @@ function newSketch() {
   window.location.href = myURL.href
 }
 
-
-
-
 // SVG-TEXT-TO-PATH
 
 let session = new SvgTextToPath(document.querySelector('svg'), {
   useFontFace: true,
 });
 let stat = session.replaceAll();
+
+
+
+
 
 
 
