@@ -87,8 +87,28 @@ class ArcSketch {
       rightAngle: 24,
       colBG: '#ffffff',
       colFG: '#000000',
-      txt: 'LLAL'
+      txt: 'LLAL',
+      // Noise settings for width variations
+      useNoise: true,
+      noiseScale: 0.1,
+      widthMin: 50,
+      widthMax: 200,
+      // Additional noise parameters for more varied patterns
+      noiseOctaves: 3,
+      noisePersistence: 0.5,
+      noiseLacunarity: 2.0,
+      noiseContrast: 1.0
     };
+
+    // Load saved settings if available
+    this.loadSettings();
+
+    // Initialize noise generator using the main seed system
+    if (this.settings.useNoise) {
+      // Use the main seed for noise consistency
+      const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
+      this.noise = new SimplexNoise(noiseSeed);
+    }
 
     // Calculate font size dynamically based on number of rows
     this.updateFontSize();
@@ -220,7 +240,7 @@ class ArcSketch {
     const radiusStep = (rOuter - rInner) / (nRows - 1);
     
     // Generate text for each line - follow the arc using textPath
-    for (let row = 0; row < nRows; row++) {
+    for (let row = 1; row < nRows; row++) {
       const radius = rInner + (row * radiusStep);
       
       // Create the arc path for this radius
@@ -264,7 +284,37 @@ class ArcSketch {
       // Create individual tspans for each letter with width variations
       for (let i = 0; i < fullText.length; i++) {
         const span = document.createElementNS(this.svg.ns, 'tspan');
-        const width = rndInt(50, 200);
+        
+        // Use noise for width variations if enabled
+        let width;
+        if (this.settings.useNoise && this.noise) {
+          // Create multi-octave noise for more varied patterns
+          let noiseValue = 0;
+          let amplitude = 1.0;
+          let frequency = 1.0;
+          
+          for (let octave = 0; octave < this.settings.noiseOctaves; octave++) {
+            const noiseX = i * this.settings.noiseScale * frequency;
+            const noiseY = row * this.settings.noiseScale * frequency;
+            noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
+            
+            amplitude *= this.settings.noisePersistence;
+            frequency *= this.settings.noiseLacunarity;
+          }
+          
+          // Apply contrast to create sharper transitions
+          const contrast = this.settings.noiseContrast;
+          if (contrast !== 1.0) {
+            noiseValue = Math.sign(noiseValue) * Math.pow(Math.abs(noiseValue), contrast);
+          }
+          
+          // Map noise value (-1 to 1) to width range
+          const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
+          width = Math.round(this.settings.widthMin + (normalizedNoise * (this.settings.widthMax - this.settings.widthMin)));
+        } else {
+          width = rndInt(this.settings.widthMin, this.settings.widthMax);
+        }
+        
         span.setAttribute('style', `font-variation-settings: 'wdth' ${width};`);
         span.textContent = fullText[i];
         textPath.appendChild(span);
@@ -308,6 +358,167 @@ class ArcSketch {
       slider.value = e.target.value;
       this.settings.nRows = parseInt(e.target.value);
       this.updateSketch();
+    });
+
+    // Noise toggle control
+    const noiseToggleControl = document.createElement('li');
+    noiseToggleControl.innerHTML = `
+      <label for="useNoise-checkbox">Use noise for width variations: </label>
+      <input type="checkbox" id="useNoise-checkbox" ${this.settings.useNoise ? 'checked' : ''}>
+    `;
+    values.append(noiseToggleControl);
+
+    const noiseCheckbox = noiseToggleControl.querySelector('#useNoise-checkbox');
+    noiseCheckbox.addEventListener('change', (e) => {
+      this.settings.useNoise = e.target.checked;
+      if (this.settings.useNoise && !this.noise) {
+        // Use the main seed for noise consistency
+        const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
+        this.noise = new SimplexNoise(noiseSeed);
+      }
+      this.updateSketch();
+    });
+
+    // Noise scale control
+    const noiseScaleControl = document.createElement('li');
+    noiseScaleControl.innerHTML = `
+      <label for="noiseScale-slider">Noise scale: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="range" id="noiseScale-slider" min="0.01" max="0.5" step="0.01" value="${this.settings.noiseScale}" style="width: 150px;">
+        <input type="number" id="noiseScale-input" min="0.01" max="0.5" step="0.01" value="${this.settings.noiseScale}" style="width: 60px;">
+      </div>
+    `;
+    values.append(noiseScaleControl);
+
+    const noiseScaleSlider = noiseScaleControl.querySelector('#noiseScale-slider');
+    const noiseScaleInput = noiseScaleControl.querySelector('#noiseScale-input');
+    
+    noiseScaleSlider.addEventListener('input', (e) => {
+      noiseScaleInput.value = e.target.value;
+      this.settings.noiseScale = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+    
+    noiseScaleInput.addEventListener('input', (e) => {
+      noiseScaleSlider.value = e.target.value;
+      this.settings.noiseScale = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+
+    // Noise octaves control
+    const noiseOctavesControl = document.createElement('li');
+    noiseOctavesControl.innerHTML = `
+      <label for="noiseOctaves-slider">Noise octaves: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="range" id="noiseOctaves-slider" min="1" max="6" step="1" value="${this.settings.noiseOctaves}" style="width: 150px;">
+        <input type="number" id="noiseOctaves-input" min="1" max="6" step="1" value="${this.settings.noiseOctaves}" style="width: 60px;">
+      </div>
+    `;
+    values.append(noiseOctavesControl);
+
+    const noiseOctavesSlider = noiseOctavesControl.querySelector('#noiseOctaves-slider');
+    const noiseOctavesInput = noiseOctavesControl.querySelector('#noiseOctaves-input');
+    
+    noiseOctavesSlider.addEventListener('input', (e) => {
+      noiseOctavesInput.value = e.target.value;
+      this.settings.noiseOctaves = parseInt(e.target.value);
+      this.updateSketch();
+    });
+    
+    noiseOctavesInput.addEventListener('input', (e) => {
+      noiseOctavesSlider.value = e.target.value;
+      this.settings.noiseOctaves = parseInt(e.target.value);
+      this.updateSketch();
+    });
+
+    // Noise persistence control
+    const noisePersistenceControl = document.createElement('li');
+    noisePersistenceControl.innerHTML = `
+      <label for="noisePersistence-slider">Noise persistence: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="range" id="noisePersistence-slider" min="0.1" max="1.0" step="0.1" value="${this.settings.noisePersistence}" style="width: 150px;">
+        <input type="number" id="noisePersistence-input" min="0.1" max="1.0" step="0.1" value="${this.settings.noisePersistence}" style="width: 60px;">
+      </div>
+    `;
+    values.append(noisePersistenceControl);
+
+    const noisePersistenceSlider = noisePersistenceControl.querySelector('#noisePersistence-slider');
+    const noisePersistenceInput = noisePersistenceControl.querySelector('#noisePersistence-input');
+    
+    noisePersistenceSlider.addEventListener('input', (e) => {
+      noisePersistenceInput.value = e.target.value;
+      this.settings.noisePersistence = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+    
+    noisePersistenceInput.addEventListener('input', (e) => {
+      noisePersistenceSlider.value = e.target.value;
+      this.settings.noisePersistence = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+
+    // Noise contrast control
+    const noiseContrastControl = document.createElement('li');
+    noiseContrastControl.innerHTML = `
+      <label for="noiseContrast-slider">Noise contrast: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="range" id="noiseContrast-slider" min="0.1" max="3.0" step="0.1" value="${this.settings.noiseContrast}" style="width: 150px;">
+        <input type="number" id="noiseContrast-input" min="0.1" max="3.0" step="0.1" value="${this.settings.noiseContrast}" style="width: 60px;">
+      </div>
+    `;
+    values.append(noiseContrastControl);
+
+    const noiseContrastSlider = noiseContrastControl.querySelector('#noiseContrast-slider');
+    const noiseContrastInput = noiseContrastControl.querySelector('#noiseContrast-input');
+    
+    noiseContrastSlider.addEventListener('input', (e) => {
+      noiseContrastInput.value = e.target.value;
+      this.settings.noiseContrast = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+    
+    noiseContrastInput.addEventListener('input', (e) => {
+      noiseContrastSlider.value = e.target.value;
+      this.settings.noiseContrast = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+
+    // Save/Load controls
+    const saveLoadControl = document.createElement('li');
+    saveLoadControl.innerHTML = `
+      <div style="display: flex; gap: 10px;">
+        <button id="save-settings-btn" style="padding: 5px 10px;">Save Settings</button>
+        <button id="load-settings-btn" style="padding: 5px 10px;">Load Settings</button>
+        <button id="load-from-svg-btn" style="padding: 5px 10px;">Load from SVG</button>
+      </div>
+    `;
+    values.append(saveLoadControl);
+
+    const saveBtn = saveLoadControl.querySelector('#save-settings-btn');
+    const loadBtn = saveLoadControl.querySelector('#load-settings-btn');
+    const loadFromSvgBtn = saveLoadControl.querySelector('#load-from-svg-btn');
+    
+    saveBtn.addEventListener('click', () => {
+      this.saveSettings();
+      // Show feedback
+      saveBtn.textContent = 'Saved!';
+      setTimeout(() => {
+        saveBtn.textContent = 'Save Settings';
+      }, 1000);
+    });
+    
+    loadBtn.addEventListener('click', () => {
+      this.loadSettings();
+      this.updateSketch();
+      // Show feedback
+      loadBtn.textContent = 'Loaded!';
+      setTimeout(() => {
+        loadBtn.textContent = 'Load Settings';
+      }, 1000);
+    });
+
+    loadFromSvgBtn.addEventListener('click', () => {
+      this.loadSettingsFromFile();
     });
 
     const btnLi = document.createElement('li');
@@ -369,5 +580,104 @@ class ArcSketch {
     if (this.svg && this.svg.stage) {
       // Remove any event listeners or timers if they exist
     }
+  }
+
+  saveSettings() {
+    try {
+      localStorage.setItem('arcSketchSettings', JSON.stringify(this.settings));
+      console.log('Settings saved successfully');
+    } catch (e) {
+      console.error('Failed to save settings:', e);
+    }
+  }
+
+  loadSettings() {
+    try {
+      const saved = localStorage.getItem('arcSketchSettings');
+      if (saved) {
+        const loadedSettings = JSON.parse(saved);
+        // Merge loaded settings with defaults (preserve any new settings)
+        this.settings = { ...this.settings, ...loadedSettings };
+        console.log('Settings loaded successfully');
+      }
+    } catch (e) {
+      console.error('Failed to load settings:', e);
+    }
+  }
+
+  injectSettingsIntoSVG() {
+    // Create metadata element with settings
+    const metadata = document.createElementNS(this.svg.ns, 'metadata');
+    metadata.setAttribute('id', 'sketch-settings');
+    
+    // Create a JSON element with the settings
+    const settingsJson = document.createElementNS(this.svg.ns, 'text');
+    settingsJson.setAttribute('id', 'settings-data');
+    settingsJson.style.display = 'none';
+    settingsJson.textContent = JSON.stringify(this.settings, null, 2);
+    
+    metadata.appendChild(settingsJson);
+    
+    // Add to SVG defs
+    this.defs.appendChild(metadata);
+  }
+
+  // Override the save method to include settings
+  saveWithSettings() {
+    // Inject settings into SVG
+    this.injectSettingsIntoSVG();
+    
+    // Call the original save method
+    if (this.svg && this.svg.save) {
+      this.svg.save();
+    }
+  }
+
+  loadSettingsFromFile() {
+    // Create file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.svg';
+    fileInput.style.display = 'none';
+    
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const svgContent = e.target.result;
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
+            
+            // Find settings metadata
+            const settingsElement = svgDoc.querySelector('#settings-data');
+            if (settingsElement) {
+              const settings = JSON.parse(settingsElement.textContent);
+              // Merge with current settings
+              this.settings = { ...this.settings, ...settings };
+              
+              // Reinitialize noise if needed
+              if (this.settings.useNoise) {
+                const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
+                this.noise = new SimplexNoise(noiseSeed);
+              }
+              
+              this.updateSketch();
+              console.log('Settings loaded from SVG file');
+            } else {
+              console.log('No settings found in SVG file');
+            }
+          } catch (error) {
+            console.error('Error loading settings from file:', error);
+          }
+        };
+        reader.readAsText(file);
+      }
+    });
+    
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    document.body.removeChild(fileInput);
   }
 } 

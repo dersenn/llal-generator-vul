@@ -590,7 +590,13 @@ const keyHandlers = (event) => {
     case 'd':
       console.log('d pressed')
       if (window.sketchManager && window.sketchManager.getSvg()) {
-        window.sketchManager.getSvg().save()
+        // Check if current sketch has a custom save method with settings
+        if (window.sketchManager.currentSketch && window.sketchManager.currentSketch.saveWithSettings) {
+          window.sketchManager.currentSketch.saveWithSettings()
+        } else {
+          // Fall back to default save method
+          window.sketchManager.getSvg().save()
+        }
       } else {
         console.error('No SVG available for saving')
       }
