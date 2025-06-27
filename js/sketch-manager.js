@@ -25,28 +25,64 @@ class SketchManager {
       this.loadSketch(e.target.value);
     });
     
-    // Load sketch from URL or default
+    // Load sketch from URL or default to first sketch
     const urlParams = new URLSearchParams(window.location.search);
     const sketchFromUrl = urlParams.get('sketch');
-    const defaultSketch = this.sketches[sketchFromUrl] ? sketchFromUrl : 'firework';
+    const defaultSketch = this.sketches[sketchFromUrl] ? sketchFromUrl : Object.keys(this.sketches)[0];
     
     this.loadSketch(defaultSketch);
   }
 
   loadSketches() {
-    // Register available sketches
-    this.sketches = {
-      firework: {
-        name: 'Firework',
+    // Automatically discover and register sketches
+    // This is the only place you need to modify to add a new sketch
+    const sketchDefinitions = [
+      {
+        name: 'firework-01',
+        displayName: 'Firework 01',
         class: FireworkSketch,
         description: 'Firework pattern with LLAL text'
       },
-      arc: {
-        name: 'Arc Text',
+      {
+        name: 'arc-01',
+        displayName: 'Arc Text 01',
         class: ArcSketch,
         description: 'Arc text layout with cone pattern'
       }
-    };
+      // To add a new sketch, just add an entry here:
+      // {
+      //   name: 'my-new-sketch',
+      //   displayName: 'My New Sketch',
+      //   class: MyNewSketch,
+      //   description: 'Description of my new sketch'
+      // }
+    ];
+
+    // Register sketches
+    this.sketches = {};
+    sketchDefinitions.forEach(sketch => {
+      this.sketches[sketch.name] = {
+        name: sketch.displayName,
+        class: sketch.class,
+        description: sketch.description
+      };
+    });
+
+    // Update the dropdown options
+    this.updateSketchDropdown();
+  }
+
+  updateSketchDropdown() {
+    // Clear existing options
+    this.sketchSelect.innerHTML = '';
+    
+    // Add options for each sketch
+    Object.entries(this.sketches).forEach(([key, sketch]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = sketch.name;
+      this.sketchSelect.appendChild(option);
+    });
   }
 
   loadSketch(sketchName, useNewSeed = false) {

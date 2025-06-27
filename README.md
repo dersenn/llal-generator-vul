@@ -25,15 +25,38 @@ llal-generator-vul/
 
 1. **Open `index.html`** in your browser
 2. **Select a sketch** from the dropdown in the controls panel
-3. **Use the "new" button** to generate new variations with different seeds
+3. **Use the "new seed" button** to generate new variations with different seeds
 4. **Switch between sketches** at any time using the dropdown
+5. **Share URLs** - Each variation has a unique URL you can bookmark or share
 
-### Adding New Sketches
+### Adding New Sketches (Simplified!)
 
-To add a new sketch variation:
+To add a new sketch variation, you only need to modify **one file**:
 
-1. Create a new file in the `sketches/` directory (e.g., `sketches/my-new-sketch.js`)
-2. Create a class that follows this pattern:
+1. **Create your sketch file** in the `sketches/` directory (e.g., `sketches/my-new-sketch.js`)
+2. **Add the script to `index.html`**:
+   ```html
+   <script src="sketches/my-new-sketch.js"></script>
+   ```
+3. **Add one entry to `js/sketch-manager.js`** in the `sketchDefinitions` array:
+   ```javascript
+   {
+     name: 'my-new-sketch',
+     displayName: 'My New Sketch',
+     class: MyNewSketch,
+     description: 'Description of my new sketch'
+   }
+   ```
+
+That's it! The sketch manager will automatically:
+- ✅ Register your sketch
+- ✅ Add it to the dropdown
+- ✅ Handle URL parameters
+- ✅ Manage loading and switching
+
+### Sketch Class Template
+
+Your sketch class should follow this pattern:
 
 ```javascript
 class MyNewSketch {
@@ -50,6 +73,7 @@ class MyNewSketch {
     this.createArtwork();
     this.setupControls();
     this.setupTextToPath();
+    this.updateHashDisplay();
   }
 
   setupSVG() {
@@ -62,7 +86,9 @@ class MyNewSketch {
       presAspect: 'xMidYMid meet',
     };
     this.svg = new SVG(setup);
-    sketchManager.setSvg(this.svg);
+    if (window.sketchManager) {
+      window.sketchManager.setSvg(this.svg);
+    }
   }
 
   setupSketch() {
@@ -85,32 +111,25 @@ class MyNewSketch {
     let stat = session.replaceAll();
   }
 
+  updateHashDisplay() {
+    // Update the hash display
+    const hashDisplay = document.getElementById('hash-display');
+    if (hashDisplay && this.seed) {
+      hashDisplay.textContent = this.seed.hash;
+    }
+  }
+
+  newSketch() {
+    // Use the sketch manager to reload with new seed
+    if (window.sketchManager) {
+      window.sketchManager.reloadCurrentSketch();
+    }
+  }
+
   cleanup() {
     // Clean up resources if needed
   }
 }
-```
-
-3. Add the script to `index.html`:
-```html
-<script src="sketches/my-new-sketch.js"></script>
-```
-
-4. Register it in `js/sketch-manager.js`:
-```javascript
-this.sketches = {
-  // ... existing sketches
-  'my-new-sketch': {
-    name: 'My New Sketch',
-    class: MyNewSketch,
-    description: 'Description of my new sketch'
-  }
-};
-```
-
-5. Add it to the dropdown in `index.html`:
-```html
-<option value="my-new-sketch">My New Sketch</option>
 ```
 
 ### Legacy Folders
@@ -124,6 +143,8 @@ The `vul1/` and `vul2/` folders are kept for reference but are no longer needed 
 - **Consistent control interface** across all sketches
 - **Easy to extend** with new sketch variations
 - **Seed-based randomization** for reproducible variations
+- **URL parameter support** for sharing and bookmarking
+- **Single-point configuration** for adding new sketches
 
 ### Technical Details
 
@@ -132,6 +153,8 @@ The `vul1/` and `vul2/` folders are kept for reference but are no longer needed 
 - Modular architecture for easy maintenance
 - Responsive design that adapts to window size
 - Font variation support for dynamic typography
+- URL-based state management
+- Automatic sketch discovery and registration
 
 ## Features
 

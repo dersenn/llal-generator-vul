@@ -66,9 +66,9 @@ rotorange
   padding: 0.5em;
   border: 1px solid #ccc;
   border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
   background-color: white;
   width: 100%;
-  font-family: 'Courier New', Courier, monospace;
   font-size: 12px;
 }
 
@@ -77,6 +77,7 @@ rotorange
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 #controls ul {
@@ -86,11 +87,16 @@ rotorange
   list-style-type: none;
   gap: 0.5em;
   flex: 1;
+  min-height: 0;
 }
 
 #controls ul li {
   font-size: 12px;
   padding: 0.25em 0;
+}
+
+#controls ul li:last-child {
+  margin-top: auto;
 }
 
 .btn {
@@ -104,7 +110,6 @@ rotorange
   font-size: 12px;
   text-align: center;
   width: 100%;
-  margin-top: auto;
 }
 
 .btn:hover {

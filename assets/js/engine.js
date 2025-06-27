@@ -1,5 +1,5 @@
 // 20-02-2023
-// Preset 01 — ex v3 in svg-engine..
+// Preset 01 — ex v3 in svg-engine..
 
 // To Do:
 // — nice to have: working defaults.
@@ -56,11 +56,28 @@ class SVG {
     const str = new XMLSerializer().serializeToString(this.stage)
     const blob = new Blob([str], this.mime)
 
-    const link = document.createElement("a"),
-          time = Math.round(new Date().getTime() / 1000)
+    const link = document.createElement("a")
     let   hashStr = ''
-    if (seed) { hashStr += '-s='+ seed.hash }
-    link.download = `${document.title}-${time}${hashStr}.svg`
+    let   sketchStr = ''
+    
+    if (seed) { hashStr += '&seed='+ seed.hash }
+    if (window.sketchManager && window.sketchManager.currentSketchName) { 
+      sketchStr += 'sketch='+ window.sketchManager.currentSketchName 
+    }
+    
+    // Format timestamp as readable date string
+    const now = new Date()
+    const timestamp = now.toLocaleString('sv-SE', { 
+      year: 'numeric', 
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).replace(/[:.]/g, '-').replace(/\s/g, '_') // YYYY-MM-DD_HH-MM-SS in local timezone
+    
+    link.download = `${sketchStr}${hashStr}_${timestamp}.svg`
     link.href = URL.createObjectURL(blob)
     link.click()
     URL.revokeObjectURL(link.href)
@@ -572,7 +589,11 @@ const keyHandlers = (event) => {
   switch (event.key) {
     case 'd':
       console.log('d pressed')
-      svg.save()
+      if (window.sketchManager && window.sketchManager.getSvg()) {
+        window.sketchManager.getSvg().save()
+      } else {
+        console.error('No SVG available for saving')
+      }
       break
     case 'n': {
       const myURL = new URL(window.location.href)

@@ -73,27 +73,32 @@ class ArcSketch {
     this.defs = document.createElementNS(this.svg.ns, 'defs');
     this.svg.stage.prepend(this.defs);
 
-    const useFilter = false;
-    const useBlanks = false;
-    const useCircles = false;
+    // Create settings object directly
+    this.settings = {
+      useFilter: false,
+      useBlanks: false,
+      useCircles: false,
+      blanksProb: rndInt(40, 75),
+      borderTop: 0,
+      wdths: [50, 100, 150, 200],
+      nCols: 20,
+      nRows: 60,
+      leftAngle: 24,
+      rightAngle: 24,
+      colBG: '#ffffff',
+      colFG: '#000000',
+      txt: 'LLAL'
+    };
 
-    const blanksProb = rndInt(40, 75);
-    const borderTop = 0;
-    const wdths = [50, 100, 150, 200];
-    const nCols = 20;
-    const nRows = 60;
-    const fSize = ((this.svg.h - borderTop) / nRows) * 1.5 + 'px';
-    const lOff = '.66em';
-
-    const colBG = '#ffffff';
-    const colFG = '#000000';
+    // Calculate font size dynamically based on number of rows
+    this.updateFontSize();
 
     document.body.style['background-color'] = '#eee';
     this.svg.stage.style['font-family'] = 'LLAL-linear';
-    this.svg.stage.style['background-color'] = colBG;
+    this.svg.stage.style['background-color'] = this.settings.colBG;
 
     let a = nVec(0, 0);
-    let txt = 'LLAL';
+    let txt = this.settings.txt;
     let cols = [];
 
     this.letters = document.createElementNS(this.svg.ns, 'g');
@@ -102,23 +107,13 @@ class ArcSketch {
 
     this.circles = document.createElementNS(this.svg.ns, 'g');
     this.circles.setAttribute('id', 'circles');
+  }
 
-    // Store settings for later use
-    this.settings = {
-      useFilter,
-      useBlanks,
-      useCircles,
-      blanksProb,
-      borderTop,
-      wdths,
-      nCols,
-      nRows,
-      fSize,
-      lOff,
-      colBG,
-      colFG,
-      txt
-    };
+  updateFontSize() {
+    // Calculate font size based on available space and number of rows
+    const availableHeight = this.svg.h - this.settings.borderTop;
+    const lineSpacing = 1.5; // This was the original 1.5 multiplier
+    this.settings.fSize = (availableHeight / this.settings.nRows) * lineSpacing + 'px';
   }
 
   createFilter() {
@@ -203,8 +198,8 @@ class ArcSketch {
     const cx = this.svg.w / 2;
     const cy = this.svg.h - rOuter; // center above SVG, arc at bottom
 
-    const arcStart = rndInt(0, 360);   // bottom-right of circle
-    const arcEnd = 66;      // bottom-left of circle
+    const arcStart = 90 + this.settings.leftAngle;   // bottom-right of circle
+    const arcEnd = 90 - this.settings.rightAngle;      // bottom-left of circle
 
     this.drawControlPoints = true;
 
@@ -213,6 +208,71 @@ class ArcSketch {
 
     this.makeArc(cx, cy, rOuter, arcStart, arcEnd);
     this.makeArc(cx, cy, rInner, arcStart, arcEnd);
+
+    // Generate multiple lines of text along the arcs
+    this.createArcTextLines(cx, cy, rOuter, rInner, arcStart, arcEnd);
+  }
+
+  createArcTextLines(cx, cy, rOuter, rInner, arcStart, arcEnd) {
+    const { nRows, fSize, txt, colFG } = this.settings;
+    
+    // Calculate radius step between lines
+    const radiusStep = (rOuter - rInner) / (nRows - 1);
+    
+    // Generate text for each line - follow the arc using textPath
+    for (let row = 0; row < nRows; row++) {
+      const radius = rInner + (row * radiusStep);
+      
+      // Create the arc path for this radius
+      const pathId = `arc-path-${row}`;
+      const path = document.createElementNS(this.svg.ns, 'path');
+      path.setAttribute('id', pathId);
+      path.setAttribute('d', this.arcPath(cx, cy, radius, arcStart, arcEnd));
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', 'none'); // Make path invisible
+      this.defs.appendChild(path);
+      
+      // Calculate arc length for this radius
+      const arcLength = radius * Math.abs(rad(arcEnd - arcStart));
+      
+      // Better estimation for character width and repetitions
+      const fontSize = parseFloat(fSize);
+      const avgCharWidth = fontSize * 0.4; // More accurate average character width
+      const charsPerLLAL = txt.length;
+      const avgLLALWidth = avgCharWidth * charsPerLLAL;
+      
+      // Calculate repetitions with some extra to ensure full coverage
+      const baseRepetitions = Math.ceil(arcLength / avgLLALWidth);
+      const repetitions = Math.max(baseRepetitions, 3); // Minimum 3 repetitions
+      
+      // Create the full line of repeating text
+      let fullText = '';
+      for (let i = 0; i < repetitions; i++) {
+        fullText += txt;
+      }
+      
+      // Create text element that follows the path
+      const text = document.createElementNS(this.svg.ns, 'text');
+      text.setAttribute('style', `font-size: ${fSize}; fill: ${colFG}; font-family: LLAL-linear;`);
+      
+      // Create textPath element
+      const textPath = document.createElementNS(this.svg.ns, 'textPath');
+      textPath.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `#${pathId}`);
+      textPath.setAttribute('startOffset', '0%');
+      textPath.setAttribute('spacing', 'auto');
+      
+      // Create individual tspans for each letter with width variations
+      for (let i = 0; i < fullText.length; i++) {
+        const span = document.createElementNS(this.svg.ns, 'tspan');
+        const width = rndInt(50, 200);
+        span.setAttribute('style', `font-variation-settings: 'wdth' ${width};`);
+        span.textContent = fullText[i];
+        textPath.appendChild(span);
+      }
+      
+      text.appendChild(textPath);
+      this.letters.appendChild(text);
+    }
   }
 
   setupControls() {
@@ -223,12 +283,32 @@ class ArcSketch {
     reloadBtn.setAttribute('id', 'btnreload');
     reloadBtn.append('new seed');
 
-    // Commented out in original - uncomment if you want to show filter settings
-    // for (const property in this.fSet) {
-    //   const prop = document.createElement('li');
-    //   prop.append(`${property}: ${this.fSet[property]}`);
-    //   values.append(prop);
-    // }
+    // Number of lines control
+    const linesControl = document.createElement('li');
+    linesControl.innerHTML = `
+      <label for="nRows-slider">Number of lines: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="range" id="nRows-slider" min="5" max="100" value="${this.settings.nRows}" style="width: 150px;">
+        <input type="number" id="nRows-input" min="5" max="100" value="${this.settings.nRows}" style="width: 60px;">
+      </div>
+    `;
+    values.append(linesControl);
+
+    // Link slider and input
+    const slider = linesControl.querySelector('#nRows-slider');
+    const input = linesControl.querySelector('#nRows-input');
+    
+    slider.addEventListener('input', (e) => {
+      input.value = e.target.value;
+      this.settings.nRows = parseInt(e.target.value);
+      this.updateSketch();
+    });
+    
+    input.addEventListener('input', (e) => {
+      slider.value = e.target.value;
+      this.settings.nRows = parseInt(e.target.value);
+      this.updateSketch();
+    });
 
     const btnLi = document.createElement('li');
     btnLi.append(reloadBtn);
@@ -258,6 +338,30 @@ class ArcSketch {
     if (window.sketchManager) {
       window.sketchManager.reloadCurrentSketch();
     }
+  }
+
+  updateSketch() {
+    // Update font size based on new number of rows
+    this.updateFontSize();
+    
+    // Clear existing text
+    if (this.letters) {
+      this.letters.innerHTML = '';
+    }
+    
+    // Clear existing arc paths from defs
+    const existingPaths = this.defs.querySelectorAll('[id^="arc-path-"]');
+    existingPaths.forEach(path => path.remove());
+    
+    // Regenerate arc text with new settings
+    const rOuter = 376 * this.mmToPx;
+    const rInner = 100 * this.mmToPx;
+    const cx = this.svg.w / 2;
+    const cy = this.svg.h - rOuter;
+    const arcStart = 90 + this.settings.leftAngle;
+    const arcEnd = 90 - this.settings.rightAngle;
+    
+    this.createArcTextLines(cx, cy, rOuter, rInner, arcStart, arcEnd);
   }
 
   cleanup() {
