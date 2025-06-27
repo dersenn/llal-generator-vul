@@ -224,10 +224,10 @@ class ArcSketch {
     this.drawControlPoints = true;
 
     // Draw reference circle
-    this.svg.makeCircle({ x: cx, y: cy }, rOuter, 'none', '#0f0');
+    // this.svg.makeCircle({ x: cx, y: cy }, rOuter, 'none', '#0f0');
 
-    this.makeArc(cx, cy, rOuter, arcStart, arcEnd);
-    this.makeArc(cx, cy, rInner, arcStart, arcEnd);
+    // this.makeArc(cx, cy, rOuter, arcStart, arcEnd);
+    // this.makeArc(cx, cy, rInner, arcStart, arcEnd);
 
     // Generate multiple lines of text along the arcs
     this.createArcTextLines(cx, cy, rOuter, rInner, arcStart, arcEnd);
@@ -481,6 +481,42 @@ class ArcSketch {
       noiseContrastSlider.value = e.target.value;
       this.settings.noiseContrast = parseFloat(e.target.value);
       this.updateSketch();
+    });
+
+    // Noise randomizer control
+    const noiseRandomizerControl = document.createElement('li');
+    noiseRandomizerControl.innerHTML = `
+      <button id="randomize-noise-btn" style="padding: 5px 10px;">Randomize Noise Settings</button>
+    `;
+    values.append(noiseRandomizerControl);
+
+    const randomizeNoiseBtn = noiseRandomizerControl.querySelector('#randomize-noise-btn');
+    randomizeNoiseBtn.addEventListener('click', () => {
+      // Generate random noise parameter values
+      this.settings.noiseScale = rndInt(5, 50) / 100; // 0.05 to 0.5
+      this.settings.noiseOctaves = rndInt(1, 6);
+      this.settings.noisePersistence = rndInt(10, 100) / 100; // 0.1 to 1.0
+      this.settings.noiseLacunarity = rndInt(15, 35) / 10; // 1.5 to 3.5
+      this.settings.noiseContrast = rndInt(10, 30) / 10; // 1.0 to 3.0
+      
+      // Update all the control inputs to reflect new values
+      noiseScaleSlider.value = this.settings.noiseScale;
+      noiseScaleInput.value = this.settings.noiseScale;
+      noiseOctavesSlider.value = this.settings.noiseOctaves;
+      noiseOctavesInput.value = this.settings.noiseOctaves;
+      noisePersistenceSlider.value = this.settings.noisePersistence;
+      noisePersistenceInput.value = this.settings.noisePersistence;
+      noiseContrastSlider.value = this.settings.noiseContrast;
+      noiseContrastInput.value = this.settings.noiseContrast;
+      
+      // Update sketch with new noise settings
+      this.updateSketch();
+      
+      // Show feedback
+      randomizeNoiseBtn.textContent = 'Randomized!';
+      setTimeout(() => {
+        randomizeNoiseBtn.textContent = 'Randomize Noise Settings';
+      }, 1000);
     });
 
     // Save/Load controls
