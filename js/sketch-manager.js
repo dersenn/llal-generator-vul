@@ -201,6 +201,24 @@ class SketchManager {
       noiseCheckbox.checked = settings.useNoise;
     }
     
+    // Update predefined widths toggle
+    const predefinedWidthsCheckbox = document.getElementById('usePredefinedWidths-checkbox');
+    if (predefinedWidthsCheckbox && settings.usePredefinedWidths !== undefined) {
+      predefinedWidthsCheckbox.checked = settings.usePredefinedWidths;
+    }
+    
+    // Update text pattern shift toggle
+    const textPatternShiftCheckbox = document.getElementById('shiftTextPattern-checkbox');
+    if (textPatternShiftCheckbox && settings.shiftTextPattern !== undefined) {
+      textPatternShiftCheckbox.checked = settings.shiftTextPattern;
+    }
+    
+    // Update text-to-path toggle
+    const textToPathCheckbox = document.getElementById('enableTextToPath-checkbox');
+    if (textToPathCheckbox && settings.enableTextToPath !== undefined) {
+      textToPathCheckbox.checked = settings.enableTextToPath;
+    }
+    
     // Update noise scale controls
     const noiseScaleSlider = document.getElementById('noiseScale-slider');
     const noiseScaleInput = document.getElementById('noiseScale-input');

@@ -36,7 +36,6 @@ class ArcSketch {
     this.createFilter();
     this.createArcText();
     this.setupControls();
-    this.setupTextToPath();
     this.updateHashDisplay();
   }
 
@@ -97,7 +96,11 @@ class ArcSketch {
       noiseOctaves: 3,
       noisePersistence: 0.5,
       noiseLacunarity: 2.0,
-      noiseContrast: 1.0
+      noiseContrast: 1.0,
+      // Width variation options
+      usePredefinedWidths: false,
+      // Text pattern options
+      shiftTextPattern: false
     };
 
     // Load saved settings if available
@@ -271,6 +274,16 @@ class ArcSketch {
         fullText += txt;
       }
       
+      // Apply text pattern shifting if enabled
+      if (this.settings.shiftTextPattern) {
+        // Shift the starting position by row number
+        const shiftAmount = row % txt.length;
+        if (shiftAmount > 0) {
+          // Move the first 'shiftAmount' characters to the end
+          fullText = fullText.slice(shiftAmount) + fullText.slice(0, shiftAmount);
+        }
+      }
+      
       // Create text element that follows the path
       const text = document.createElementNS(this.svg.ns, 'text');
       text.setAttribute('style', `font-size: ${fSize}; fill: ${colFG}; font-family: LLAL-linear;`);
@@ -310,11 +323,26 @@ class ArcSketch {
           
           // Map noise value (-1 to 1) to width range
           const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
-          width = Math.round(this.settings.widthMin + (normalizedNoise * (this.settings.widthMax - this.settings.widthMin)));
+          
+          if (this.settings.usePredefinedWidths) {
+            // Use predefined width steps for sharper contrast
+            const widthIndex = Math.floor(normalizedNoise * (this.settings.wdths.length - 1));
+            width = this.settings.wdths[widthIndex];
+          } else {
+            // Use continuous width range
+            width = Math.round(this.settings.widthMin + (normalizedNoise * (this.settings.widthMax - this.settings.widthMin)));
+          }
         } else {
-          width = rndInt(this.settings.widthMin, this.settings.widthMax);
+          if (this.settings.usePredefinedWidths) {
+            // Random predefined width
+            width = this.settings.wdths[rndInt(0, this.settings.wdths.length - 1)];
+          } else {
+            // Random continuous width
+            width = rndInt(this.settings.widthMin, this.settings.widthMax);
+          }
         }
         
+        // Set the width variation directly on the tspan
         span.setAttribute('style', `font-variation-settings: 'wdth' ${width};`);
         span.textContent = fullText[i];
         textPath.appendChild(span);
@@ -360,6 +388,20 @@ class ArcSketch {
       this.updateSketch();
     });
 
+    // Text pattern shifting control
+    const textPatternShiftControl = document.createElement('li');
+    textPatternShiftControl.innerHTML = `
+      <label for="shiftTextPattern-checkbox">Shift text pattern per row: </label>
+      <input type="checkbox" id="shiftTextPattern-checkbox" ${this.settings.shiftTextPattern ? 'checked' : ''}>
+    `;
+    values.append(textPatternShiftControl);
+
+    const textPatternShiftCheckbox = textPatternShiftControl.querySelector('#shiftTextPattern-checkbox');
+    textPatternShiftCheckbox.addEventListener('change', (e) => {
+      this.settings.shiftTextPattern = e.target.checked;
+      this.updateSketch();
+    });
+
     // Noise toggle control
     const noiseToggleControl = document.createElement('li');
     noiseToggleControl.innerHTML = `
@@ -376,6 +418,20 @@ class ArcSketch {
         const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
         this.noise = new SimplexNoise(noiseSeed);
       }
+      this.updateSketch();
+    });
+
+    // Predefined widths control
+    const predefinedWidthsControl = document.createElement('li');
+    predefinedWidthsControl.innerHTML = `
+      <label for="usePredefinedWidths-checkbox">Use predefined width steps: </label>
+      <input type="checkbox" id="usePredefinedWidths-checkbox" ${this.settings.usePredefinedWidths ? 'checked' : ''}>
+    `;
+    values.append(predefinedWidthsControl);
+
+    const predefinedWidthsCheckbox = predefinedWidthsControl.querySelector('#usePredefinedWidths-checkbox');
+    predefinedWidthsCheckbox.addEventListener('change', (e) => {
+      this.settings.usePredefinedWidths = e.target.checked;
       this.updateSketch();
     });
 
@@ -566,13 +622,6 @@ class ArcSketch {
     reloadBtn.addEventListener('click', () => this.newSketch());
   }
 
-  setupTextToPath() {
-    let session = new SvgTextToPath(document.querySelector('svg'), {
-      useFontFace: true,
-    });
-    let stat = session.replaceAll();
-  }
-
   updateHashDisplay() {
     const hashDisplay = document.getElementById('hash-display');
     if (hashDisplay && this.seed) {
@@ -642,20 +691,12 @@ class ArcSketch {
   }
 
   injectSettingsIntoSVG() {
-    // Create metadata element with settings
-    const metadata = document.createElementNS(this.svg.ns, 'metadata');
-    metadata.setAttribute('id', 'sketch-settings');
-    
-    // Create a JSON element with the settings
-    const settingsJson = document.createElementNS(this.svg.ns, 'text');
-    settingsJson.setAttribute('id', 'settings-data');
-    settingsJson.style.display = 'none';
-    settingsJson.textContent = JSON.stringify(this.settings, null, 2);
-    
-    metadata.appendChild(settingsJson);
-    
-    // Add to SVG defs
-    this.defs.appendChild(metadata);
+    // Store settings as a data attribute on the SVG element
+    // This is more reliable than embedding in the SVG structure
+    const svgElement = document.querySelector('svg');
+    if (svgElement) {
+      svgElement.setAttribute('data-sketch-settings', JSON.stringify(this.settings));
+    }
   }
 
   // Override the save method to include settings
@@ -686,10 +727,10 @@ class ArcSketch {
             const parser = new DOMParser();
             const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
             
-            // Find settings metadata
-            const settingsElement = svgDoc.querySelector('#settings-data');
-            if (settingsElement) {
-              const settings = JSON.parse(settingsElement.textContent);
+            // Find settings in the data attribute
+            const svgElement = svgDoc.querySelector('svg');
+            if (svgElement && svgElement.hasAttribute('data-sketch-settings')) {
+              const settings = JSON.parse(svgElement.getAttribute('data-sketch-settings'));
               // Merge with current settings
               this.settings = { ...this.settings, ...settings };
               
