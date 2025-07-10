@@ -5,7 +5,6 @@ class ArcSketch {
   constructor(controlsContainer) {
     this.controlsContainer = controlsContainer;
     this.svg = null;
-    this.letters = null;
     this.circles = null;
     this.defs = null;
     this.fSet = {};
@@ -90,15 +89,11 @@ class ArcSketch {
       // Noise settings for width variations
       useNoise: true,
       noiseScale: 0.1,
-      widthMin: 50,
-      widthMax: 200,
       // Additional noise parameters for more varied patterns
       noiseOctaves: 3,
       noisePersistence: 0.5,
       noiseLacunarity: 2.0,
       noiseContrast: 1.0,
-      // Width variation options
-      usePredefinedWidths: false,
       // Text pattern options
       shiftTextPattern: false
     };
@@ -116,6 +111,9 @@ class ArcSketch {
     // Calculate font size dynamically based on number of rows
     this.updateFontSize();
 
+    // Create CSS style definitions for width variations (after settings and font size are set)
+    this.createWidthStyles();
+
     document.body.style['background-color'] = '#eee';
     this.svg.stage.style['font-family'] = 'LLAL-linear';
     this.svg.stage.style['background-color'] = this.settings.colBG;
@@ -124,12 +122,26 @@ class ArcSketch {
     let txt = this.settings.txt;
     let cols = [];
 
-    this.letters = document.createElementNS(this.svg.ns, 'g');
-    this.letters.setAttribute('id', 'letters');
-    this.svg.stage.append(this.letters);
-
     this.circles = document.createElementNS(this.svg.ns, 'g');
     this.circles.setAttribute('id', 'circles');
+  }
+
+  createWidthStyles() {
+    // Create style element following Illustrator SVG pattern
+    const style = document.createElementNS(this.svg.ns, 'style');
+    style.setAttribute('type', 'text/css');
+    
+    // Define CSS classes for each width variation using distinct font files
+    const cssRules = `
+      .st0 { font-size: ${this.settings.fSize}; fill: ${this.settings.colFG}; }
+      .width-50 { font-family: 'LLALLogoLinear-Condensed'; }
+      .width-100 { font-family: 'LLALLogoLinear-Regular'; }
+      .width-150 { font-family: 'LLALLogoLinear-Extended'; }
+      .width-200 { font-family: 'LLALLogoLinear-Expanded'; }
+    `;
+    
+    style.textContent = cssRules;
+    this.defs.appendChild(style);
   }
 
   updateFontSize() {
@@ -173,7 +185,9 @@ class ArcSketch {
       swirl.append(turb, disp);
       this.defs.append(swirl);
 
-      this.letters.setAttribute('style', 'filter: url(#swirl)');
+      // Apply filter to all text elements
+      const textElements = this.svg.stage.querySelectorAll('text');
+      textElements.forEach(text => text.setAttribute('style', 'filter: url(#swirl)'));
       this.circles.setAttribute('style', 'filter: url(#swirl)');
     }
   }
@@ -286,13 +300,11 @@ class ArcSketch {
       
       // Create text element that follows the path
       const text = document.createElementNS(this.svg.ns, 'text');
-      text.setAttribute('style', `font-size: ${fSize}; fill: ${colFG}; font-family: LLAL-linear;`);
       
       // Create textPath element
       const textPath = document.createElementNS(this.svg.ns, 'textPath');
       textPath.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `#${pathId}`);
       textPath.setAttribute('startOffset', '0%');
-      textPath.setAttribute('spacing', 'auto');
       
       // Create individual tspans for each letter with width variations
       for (let i = 0; i < fullText.length; i++) {
@@ -324,32 +336,22 @@ class ArcSketch {
           // Map noise value (-1 to 1) to width range
           const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
           
-          if (this.settings.usePredefinedWidths) {
-            // Use predefined width steps for sharper contrast
-            const widthIndex = Math.floor(normalizedNoise * (this.settings.wdths.length - 1));
-            width = this.settings.wdths[widthIndex];
-          } else {
-            // Use continuous width range
-            width = Math.round(this.settings.widthMin + (normalizedNoise * (this.settings.widthMax - this.settings.widthMin)));
-          }
+          // Use predefined width steps for CSS classes
+          const widthIndex = Math.floor(normalizedNoise * (this.settings.wdths.length - 1));
+          width = this.settings.wdths[widthIndex];
         } else {
-          if (this.settings.usePredefinedWidths) {
-            // Random predefined width
-            width = this.settings.wdths[rndInt(0, this.settings.wdths.length - 1)];
-          } else {
-            // Random continuous width
-            width = rndInt(this.settings.widthMin, this.settings.widthMax);
-          }
+          // Random predefined width
+          width = this.settings.wdths[rndInt(0, this.settings.wdths.length - 1)];
         }
         
-        // Set the width variation directly on the tspan
-        span.setAttribute('style', `font-variation-settings: 'wdth' ${width};`);
+        // Set the width variation using CSS class
+        span.setAttribute('class', `st0 width-${width}`);
         span.textContent = fullText[i];
         textPath.appendChild(span);
       }
       
       text.appendChild(textPath);
-      this.letters.appendChild(text);
+      this.svg.stage.appendChild(text);
     }
   }
 
@@ -421,19 +423,12 @@ class ArcSketch {
       this.updateSketch();
     });
 
-    // Predefined widths control
-    const predefinedWidthsControl = document.createElement('li');
-    predefinedWidthsControl.innerHTML = `
-      <label for="usePredefinedWidths-checkbox">Use predefined width steps: </label>
-      <input type="checkbox" id="usePredefinedWidths-checkbox" ${this.settings.usePredefinedWidths ? 'checked' : ''}>
+    // Info about width variations
+    const widthInfoControl = document.createElement('li');
+    widthInfoControl.innerHTML = `
+      <div style="color: #666; font-style: italic;">Using separate font files: Condensed, Regular, Extended, Expanded</div>
     `;
-    values.append(predefinedWidthsControl);
-
-    const predefinedWidthsCheckbox = predefinedWidthsControl.querySelector('#usePredefinedWidths-checkbox');
-    predefinedWidthsCheckbox.addEventListener('change', (e) => {
-      this.settings.usePredefinedWidths = e.target.checked;
-      this.updateSketch();
-    });
+    values.append(widthInfoControl);
 
     // Noise scale control
     const noiseScaleControl = document.createElement('li');
@@ -640,14 +635,18 @@ class ArcSketch {
     // Update font size based on new number of rows
     this.updateFontSize();
     
-    // Clear existing text
-    if (this.letters) {
-      this.letters.innerHTML = '';
-    }
+    // Clear existing text elements
+    const existingTexts = this.svg.stage.querySelectorAll('text');
+    existingTexts.forEach(text => text.remove());
     
-    // Clear existing arc paths from defs
+    // Clear existing arc paths and styles from defs
     const existingPaths = this.defs.querySelectorAll('[id^="arc-path-"]');
     existingPaths.forEach(path => path.remove());
+    const existingStyles = this.defs.querySelectorAll('style');
+    existingStyles.forEach(style => style.remove());
+    
+    // Recreate styles with updated font size
+    this.createWidthStyles();
     
     // Regenerate arc text with new settings
     const rOuter = 376 * this.mmToPx;

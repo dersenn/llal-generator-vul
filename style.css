@@ -3,6 +3,26 @@
   src: url(assets/fonts/LLALLogoLinearGX.ttf) format('truetype');
 }
 
+@font-face {
+  font-family: 'LLALLogoLinear-Condensed';
+  src: url(assets/fonts/LLALLogoLinear-Condensed.otf) format('opentype');
+}
+
+@font-face {
+  font-family: 'LLALLogoLinear-Regular';
+  src: url(assets/fonts/LLALLogoLinear-Regular.otf) format('opentype');
+}
+
+@font-face {
+  font-family: 'LLALLogoLinear-Extended';
+  src: url(assets/fonts/LLALLogoLinear-Extended.otf) format('opentype');
+}
+
+@font-face {
+  font-family: 'LLALLogoLinear-Expanded';
+  src: url(assets/fonts/LLALLogoLinear-Expanded.otf) format('opentype');
+}
+
 * {
   margin: 0;
   padding: 0;
