@@ -91,6 +91,7 @@ class ArcSketch {
       noisePersistence: 0.5,
       noiseLacunarity: 2.0,
       noiseContrast: 1.0,
+      normalizeNoise: true,
       // Text pattern options
       shiftTextPattern: true,
       // Line spacing (affects font size)
@@ -321,8 +322,26 @@ class ArcSketch {
           let frequency = 1.0;
           
           for (let octave = 0; octave < this.settings.noiseOctaves; octave++) {
-            const noiseX = i * this.settings.noiseScale * frequency;
-            const noiseY = row * this.settings.noiseScale * frequency;
+            let noiseX, noiseY;
+            if (this.settings.normalizeNoise) {
+              // Calculate the widest row's arc length and character count (last row)
+              const widestRadius = rInner + ((nRows - 1) * radiusStep);
+              const widestArcLength = widestRadius * Math.abs(rad(arcEnd - arcStart));
+              const widestCharCount = Math.ceil(widestArcLength / (parseFloat(fSize) * 0.4 * txt.length)) * txt.length;
+              
+              // Map current character to the widest row's grid
+              const currentArcLength = radius * Math.abs(rad(arcEnd - arcStart));
+              const relativePosition = i / fullText.length; // 0 to 1 along current row
+              const mappedCharIndex = relativePosition * widestCharCount; // Map to widest row scale
+              
+              // Use mapped position for consistent noise sampling
+              noiseX = mappedCharIndex * this.settings.noiseScale * frequency;
+              noiseY = row * this.settings.noiseScale * frequency;
+            } else {
+              // Use character index directly (creates skewed pattern)
+              noiseX = i * this.settings.noiseScale * frequency;
+              noiseY = row * this.settings.noiseScale * frequency;
+            }
             noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
             
             amplitude *= this.settings.noisePersistence;
@@ -530,6 +549,26 @@ class ArcSketch {
       this.updateSketch();
     });
 
+    // Normalize noise control
+    const normalizeNoiseControl = document.createElement('li');
+    normalizeNoiseControl.innerHTML = `
+      <label for="normalizeNoise-checkbox">Normalize noise across rows: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="normalizeNoise-checkbox" ${this.settings.normalizeNoise ? 'checked' : ''}>
+        <label style="display: flex; align-items: center; gap: 5px;">
+          <input type="checkbox" id="normalizeNoise-lock" checked style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
+    `;
+    values.append(normalizeNoiseControl);
+
+    const normalizeNoiseCheckbox = normalizeNoiseControl.querySelector('#normalizeNoise-checkbox');
+    normalizeNoiseCheckbox.addEventListener('change', (e) => {
+      this.settings.normalizeNoise = e.target.checked;
+      this.updateSketch();
+    });
+
     // Noise scale control
     const noiseScaleControl = document.createElement('li');
     const noiseScaleRange = this.controlRanges.noiseScale;
@@ -701,6 +740,7 @@ class ArcSketch {
       const useBlanksLocked = document.getElementById('useBlanks-lock').checked;
       const blanksProbLocked = document.getElementById('blanksProb-lock').checked;
       const useNoiseLocked = document.getElementById('useNoise-lock').checked;
+      const normalizeNoiseLocked = document.getElementById('normalizeNoise-lock').checked;
       const noiseScaleLocked = document.getElementById('noiseScale-lock').checked;
       const noiseOctavesLocked = document.getElementById('noiseOctaves-lock').checked;
       const noisePersistenceLocked = document.getElementById('noisePersistence-lock').checked;
@@ -733,6 +773,10 @@ class ArcSketch {
       
       if (!useNoiseLocked) {
         this.settings.useNoise = Math.random() > 0.2; // 80% chance to use noise
+      }
+      
+      if (!normalizeNoiseLocked) {
+        this.settings.normalizeNoise = Math.random() > 0.5; // 50% chance to normalize noise
       }
       
       if (!noiseScaleLocked) {
@@ -786,6 +830,10 @@ class ArcSketch {
       
       if (!useNoiseLocked) {
         noiseCheckbox.checked = this.settings.useNoise;
+      }
+      
+      if (!normalizeNoiseLocked) {
+        normalizeNoiseCheckbox.checked = this.settings.normalizeNoise;
       }
       
       if (!noiseScaleLocked) {
@@ -931,6 +979,7 @@ class ArcSketch {
           useBlanks: document.getElementById('useBlanks-lock')?.checked || false,
           blanksProb: document.getElementById('blanksProb-lock')?.checked || false,
           useNoise: document.getElementById('useNoise-lock')?.checked || false,
+          normalizeNoise: document.getElementById('normalizeNoise-lock')?.checked || false,
           noiseScale: document.getElementById('noiseScale-lock')?.checked || false,
           noiseOctaves: document.getElementById('noiseOctaves-lock')?.checked || false,
           noisePersistence: document.getElementById('noisePersistence-lock')?.checked || false,
@@ -966,6 +1015,7 @@ class ArcSketch {
               const useBlanksLock = document.getElementById('useBlanks-lock');
               const blanksProbLock = document.getElementById('blanksProb-lock');
               const useNoiseLock = document.getElementById('useNoise-lock');
+              const normalizeNoiseLock = document.getElementById('normalizeNoise-lock');
               const noiseScaleLock = document.getElementById('noiseScale-lock');
               const noiseOctavesLock = document.getElementById('noiseOctaves-lock');
               const noisePersistenceLock = document.getElementById('noisePersistence-lock');
@@ -978,6 +1028,7 @@ class ArcSketch {
               if (useBlanksLock) useBlanksLock.checked = settingsData.locks.useBlanks || false;
               if (blanksProbLock) blanksProbLock.checked = settingsData.locks.blanksProb || false;
               if (useNoiseLock) useNoiseLock.checked = settingsData.locks.useNoise || false;
+              if (normalizeNoiseLock) normalizeNoiseLock.checked = settingsData.locks.normalizeNoise || false;
               if (noiseScaleLock) noiseScaleLock.checked = settingsData.locks.noiseScale || false;
               if (noiseOctavesLock) noiseOctavesLock.checked = settingsData.locks.noiseOctaves || false;
               if (noisePersistenceLock) noisePersistenceLock.checked = settingsData.locks.noisePersistence || false;
@@ -1114,6 +1165,12 @@ class ArcSketch {
       noiseCheckbox.checked = settings.useNoise;
     }
     
+    // Update normalize noise toggle
+    const normalizeNoiseCheckbox = document.getElementById('normalizeNoise-checkbox');
+    if (normalizeNoiseCheckbox && settings.normalizeNoise !== undefined) {
+      normalizeNoiseCheckbox.checked = settings.normalizeNoise;
+    }
+    
     // Update noise scale controls
     const noiseScaleSlider = document.getElementById('noiseScale-slider');
     const noiseScaleInput = document.getElementById('noiseScale-input');
@@ -1166,6 +1223,7 @@ class ArcSketch {
           const useBlanksLock = document.getElementById('useBlanks-lock');
           const blanksProbLock = document.getElementById('blanksProb-lock');
           const useNoiseLock = document.getElementById('useNoise-lock');
+          const normalizeNoiseLock = document.getElementById('normalizeNoise-lock');
           const noiseScaleLock = document.getElementById('noiseScale-lock');
           const noiseOctavesLock = document.getElementById('noiseOctaves-lock');
           const noisePersistenceLock = document.getElementById('noisePersistence-lock');
@@ -1178,6 +1236,7 @@ class ArcSketch {
           if (useBlanksLock) useBlanksLock.checked = settingsData.locks.useBlanks || false;
           if (blanksProbLock) blanksProbLock.checked = settingsData.locks.blanksProb || false;
           if (useNoiseLock) useNoiseLock.checked = settingsData.locks.useNoise || false;
+          if (normalizeNoiseLock) normalizeNoiseLock.checked = settingsData.locks.normalizeNoise || false;
           if (noiseScaleLock) noiseScaleLock.checked = settingsData.locks.noiseScale || false;
           if (noiseOctavesLock) noiseOctavesLock.checked = settingsData.locks.noiseOctaves || false;
           if (noisePersistenceLock) noisePersistenceLock.checked = settingsData.locks.noisePersistence || false;
