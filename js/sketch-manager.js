@@ -161,8 +161,15 @@ class SketchManager {
     if (this.currentSketchName) {
       // Preserve current settings if the sketch has them
       let preservedSettings = null;
-      if (this.currentSketch && this.currentSketch.settings) {
-        preservedSettings = { ...this.currentSketch.settings };
+      let preservedLocks = null;
+      
+      if (this.currentSketch && this.currentSketch.controlSettings) {
+        preservedSettings = { ...this.currentSketch.controlSettings };
+      }
+      
+      // Preserve lock states using the sketch's own method
+      if (this.currentSketch && typeof this.currentSketch.getCurrentLockStates === 'function') {
+        preservedLocks = this.currentSketch.getCurrentLockStates();
       }
       
       this.loadSketch(this.currentSketchName, true);
@@ -170,13 +177,13 @@ class SketchManager {
       // If we had preserved settings and the sketch can restore controls, let it handle that
       if (preservedSettings && this.currentSketch) {
         // Restore settings
-        if (this.currentSketch.settings) {
-          this.currentSketch.settings = { ...this.currentSketch.settings, ...preservedSettings };
+        if (this.currentSketch.controlSettings) {
+          this.currentSketch.controlSettings = { ...this.currentSketch.controlSettings, ...preservedSettings };
         }
         
         // Let the sketch restore its own controls if it has this capability
         if (typeof this.currentSketch.restoreControlsFromSettings === 'function') {
-          this.currentSketch.restoreControlsFromSettings();
+          this.currentSketch.restoreControlsFromSettings(preservedLocks);
         }
         
         // Update the sketch with restored settings
