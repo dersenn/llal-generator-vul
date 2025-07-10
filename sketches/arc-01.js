@@ -756,4 +756,64 @@ class ArcSketch {
     fileInput.click();
     document.body.removeChild(fileInput);
   }
+
+  restoreControlsFromSettings() {
+    // This method is called by the sketch manager when reloading with preserved settings
+    // It updates all control inputs to reflect the current settings
+    if (!this.settings) return;
+    
+    const settings = this.settings;
+    
+    // Update number of lines controls
+    const nRowsSlider = document.getElementById('nRows-slider');
+    const nRowsInput = document.getElementById('nRows-input');
+    if (nRowsSlider && nRowsInput && settings.nRows !== undefined) {
+      nRowsSlider.value = settings.nRows;
+      nRowsInput.value = settings.nRows;
+    }
+    
+    // Update text pattern shift toggle
+    const textPatternShiftCheckbox = document.getElementById('shiftTextPattern-checkbox');
+    if (textPatternShiftCheckbox && settings.shiftTextPattern !== undefined) {
+      textPatternShiftCheckbox.checked = settings.shiftTextPattern;
+    }
+    
+    // Update noise toggle
+    const noiseCheckbox = document.getElementById('useNoise-checkbox');
+    if (noiseCheckbox && settings.useNoise !== undefined) {
+      noiseCheckbox.checked = settings.useNoise;
+    }
+    
+    // Update noise scale controls
+    const noiseScaleSlider = document.getElementById('noiseScale-slider');
+    const noiseScaleInput = document.getElementById('noiseScale-input');
+    if (noiseScaleSlider && noiseScaleInput && settings.noiseScale !== undefined) {
+      noiseScaleSlider.value = settings.noiseScale;
+      noiseScaleInput.value = settings.noiseScale;
+    }
+    
+    // Update noise octaves controls
+    const noiseOctavesSlider = document.getElementById('noiseOctaves-slider');
+    const noiseOctavesInput = document.getElementById('noiseOctaves-input');
+    if (noiseOctavesSlider && noiseOctavesInput && settings.noiseOctaves !== undefined) {
+      noiseOctavesSlider.value = settings.noiseOctaves;
+      noiseOctavesInput.value = settings.noiseOctaves;
+    }
+    
+    // Update noise persistence controls
+    const noisePersistenceSlider = document.getElementById('noisePersistence-slider');
+    const noisePersistenceInput = document.getElementById('noisePersistence-input');
+    if (noisePersistenceSlider && noisePersistenceInput && settings.noisePersistence !== undefined) {
+      noisePersistenceSlider.value = settings.noisePersistence;
+      noisePersistenceInput.value = settings.noisePersistence;
+    }
+    
+    // Update noise contrast controls
+    const noiseContrastSlider = document.getElementById('noiseContrast-slider');
+    const noiseContrastInput = document.getElementById('noiseContrast-input');
+    if (noiseContrastSlider && noiseContrastInput && settings.noiseContrast !== undefined) {
+      noiseContrastSlider.value = settings.noiseContrast;
+      noiseContrastInput.value = settings.noiseContrast;
+    }
+  }
 } 
