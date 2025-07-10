@@ -5,7 +5,6 @@ class ArcSketch {
   constructor(controlsContainer) {
     this.controlsContainer = controlsContainer;
     this.svg = null;
-    this.circles = null;
     this.defs = null;
     this.fSet = {};
     
@@ -75,7 +74,6 @@ class ArcSketch {
     this.settings = {
       useFilter: false,
       useBlanks: false,
-      useCircles: false,
       blanksProb: rndInt(40, 75),
       borderTop: 0,
       wdths: [50, 100, 150, 200],
@@ -89,13 +87,26 @@ class ArcSketch {
       // Noise settings for width variations
       useNoise: true,
       noiseScale: 0.1,
-      // Additional noise parameters for more varied patterns
       noiseOctaves: 3,
       noisePersistence: 0.5,
       noiseLacunarity: 2.0,
       noiseContrast: 1.0,
       // Text pattern options
-      shiftTextPattern: false
+      shiftTextPattern: true,
+      // Line spacing (affects font size)
+      lineSpacing: 1.5
+    };
+
+    // Control ranges configuration
+    this.controlRanges = {
+      nRows: { min: 10, max: 300, step: 1 },
+      lineSpacing: { min: 0.5, max: 3.0, step: 0.1 },
+      blanksProb: { min: 10, max: 90, step: 5 },
+      noiseScale: { min: 0.01, max: 0.5, step: 0.01 },
+      noiseOctaves: { min: 1, max: 6, step: 1 },
+      noisePersistence: { min: 0.1, max: 1.0, step: 0.1 },
+      noiseContrast: { min: 0.1, max: 3.0, step: 0.1 },
+      noiseLacunarity: { min: 1.0, max: 4.0, step: 0.1 }
     };
 
     // Load saved settings if available
@@ -117,13 +128,6 @@ class ArcSketch {
     document.body.style['background-color'] = '#eee';
     this.svg.stage.style['font-family'] = 'LLAL-linear';
     this.svg.stage.style['background-color'] = this.settings.colBG;
-
-    let a = nVec(0, 0);
-    let txt = this.settings.txt;
-    let cols = [];
-
-    this.circles = document.createElementNS(this.svg.ns, 'g');
-    this.circles.setAttribute('id', 'circles');
   }
 
   createWidthStyles() {
@@ -147,8 +151,7 @@ class ArcSketch {
   updateFontSize() {
     // Calculate font size based on available space and number of rows
     const availableHeight = this.svg.h - this.settings.borderTop;
-    const lineSpacing = 1.5; // This was the original 1.5 multiplier
-    this.settings.fSize = (availableHeight / this.settings.nRows) * lineSpacing + 'px';
+    this.settings.fSize = (availableHeight / this.settings.nRows) * this.settings.lineSpacing + 'px';
   }
 
   createFilter() {
@@ -188,7 +191,6 @@ class ArcSketch {
       // Apply filter to all text elements
       const textElements = this.svg.stage.querySelectorAll('text');
       textElements.forEach(text => text.setAttribute('style', 'filter: url(#swirl)'));
-      this.circles.setAttribute('style', 'filter: url(#swirl)');
     }
   }
 
@@ -346,6 +348,12 @@ class ArcSketch {
         
         // Set the width variation using CSS class
         span.setAttribute('class', `st0 width-${width}`);
+        
+        // Apply transparent fill if useBlanks is enabled
+        if (this.settings.useBlanks && Math.random() * 100 < this.settings.blanksProb) {
+          span.setAttribute('style', 'fill: transparent;');
+        }
+        
         span.textContent = fullText[i];
         textPath.appendChild(span);
       }
@@ -361,15 +369,20 @@ class ArcSketch {
     const reloadBtn = document.createElement('a');
     reloadBtn.classList.add('btn');
     reloadBtn.setAttribute('id', 'btnreload');
-    reloadBtn.append('new seed');
+    reloadBtn.append('New Seed');
 
     // Number of lines control
     const linesControl = document.createElement('li');
+    const nRowsRange = this.controlRanges.nRows;
     linesControl.innerHTML = `
       <label for="nRows-slider">Number of lines: </label>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="nRows-slider" min="5" max="100" value="${this.settings.nRows}" style="width: 150px;">
-        <input type="number" id="nRows-input" min="5" max="100" value="${this.settings.nRows}" style="width: 60px;">
+        <input type="range" id="nRows-slider" min="${nRowsRange.min}" max="${nRowsRange.max}" step="${nRowsRange.step}" value="${this.settings.nRows}" style="width: 150px;">
+        <input type="number" id="nRows-input" min="${nRowsRange.min}" max="${nRowsRange.max}" step="${nRowsRange.step}" value="${this.settings.nRows}" style="width: 60px;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="nRows-lock" style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
       </div>
     `;
     values.append(linesControl);
@@ -390,11 +403,48 @@ class ArcSketch {
       this.updateSketch();
     });
 
+    // Line spacing control (affects font size)
+    const lineSpacingControl = document.createElement('li');
+    const lineSpacingRange = this.controlRanges.lineSpacing;
+    lineSpacingControl.innerHTML = `
+      <label for="lineSpacing-slider">Line spacing (font size): </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="range" id="lineSpacing-slider" min="${lineSpacingRange.min}" max="${lineSpacingRange.max}" step="${lineSpacingRange.step}" value="${this.settings.lineSpacing}" style="width: 150px;">
+        <input type="number" id="lineSpacing-input" min="${lineSpacingRange.min}" max="${lineSpacingRange.max}" step="${lineSpacingRange.step}" value="${this.settings.lineSpacing}" style="width: 60px;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="lineSpacing-lock" checked style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
+    `;
+    values.append(lineSpacingControl);
+
+    const lineSpacingSlider = lineSpacingControl.querySelector('#lineSpacing-slider');
+    const lineSpacingInput = lineSpacingControl.querySelector('#lineSpacing-input');
+    
+    lineSpacingSlider.addEventListener('input', (e) => {
+      lineSpacingInput.value = e.target.value;
+      this.settings.lineSpacing = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+    
+    lineSpacingInput.addEventListener('input', (e) => {
+      lineSpacingSlider.value = e.target.value;
+      this.settings.lineSpacing = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+
     // Text pattern shifting control
     const textPatternShiftControl = document.createElement('li');
     textPatternShiftControl.innerHTML = `
       <label for="shiftTextPattern-checkbox">Shift text pattern per row: </label>
-      <input type="checkbox" id="shiftTextPattern-checkbox" ${this.settings.shiftTextPattern ? 'checked' : ''}>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="shiftTextPattern-checkbox" ${this.settings.shiftTextPattern ? 'checked' : ''}>
+        <label style="display: flex; align-items: center; gap: 5px;">
+          <input type="checkbox" id="shiftTextPattern-lock" checked style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
     `;
     values.append(textPatternShiftControl);
 
@@ -404,11 +454,68 @@ class ArcSketch {
       this.updateSketch();
     });
 
+    // Use blanks control
+    const useBlanksControl = document.createElement('li');
+    useBlanksControl.innerHTML = `
+      <label for="useBlanks-checkbox">Use transparent letters: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="useBlanks-checkbox" ${this.settings.useBlanks ? 'checked' : ''}>
+        <label style="display: flex; align-items: center; gap: 5px;">
+          <input type="checkbox" id="useBlanks-lock" checked style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
+    `;
+    values.append(useBlanksControl);
+
+    const useBlanksCheckbox = useBlanksControl.querySelector('#useBlanks-checkbox');
+    useBlanksCheckbox.addEventListener('change', (e) => {
+      this.settings.useBlanks = e.target.checked;
+      this.updateSketch();
+    });
+
+    // Blanks probability control
+    const blanksProbControl = document.createElement('li');
+    const blanksProbRange = this.controlRanges.blanksProb;
+    blanksProbControl.innerHTML = `
+      <label for="blanksProb-slider">Transparent letters probability (%): </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="range" id="blanksProb-slider" min="${blanksProbRange.min}" max="${blanksProbRange.max}" step="${blanksProbRange.step}" value="${this.settings.blanksProb}" style="width: 150px;">
+        <input type="number" id="blanksProb-input" min="${blanksProbRange.min}" max="${blanksProbRange.max}" step="${blanksProbRange.step}" value="${this.settings.blanksProb}" style="width: 60px;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="blanksProb-lock" style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
+    `;
+    values.append(blanksProbControl);
+
+    const blanksProbSlider = blanksProbControl.querySelector('#blanksProb-slider');
+    const blanksProbInput = blanksProbControl.querySelector('#blanksProb-input');
+    
+    blanksProbSlider.addEventListener('input', (e) => {
+      blanksProbInput.value = e.target.value;
+      this.settings.blanksProb = parseInt(e.target.value);
+      this.updateSketch();
+    });
+    
+    blanksProbInput.addEventListener('input', (e) => {
+      blanksProbSlider.value = e.target.value;
+      this.settings.blanksProb = parseInt(e.target.value);
+      this.updateSketch();
+    });
+
     // Noise toggle control
     const noiseToggleControl = document.createElement('li');
     noiseToggleControl.innerHTML = `
-      <label for="useNoise-checkbox">Use noise for width variations: </label>
-      <input type="checkbox" id="useNoise-checkbox" ${this.settings.useNoise ? 'checked' : ''}>
+      <label for="useNoise-checkbox">Use noise: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="useNoise-checkbox" ${this.settings.useNoise ? 'checked' : ''}>
+        <label style="display: flex; align-items: center; gap: 5px;">
+          <input type="checkbox" id="useNoise-lock" checked style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
     `;
     values.append(noiseToggleControl);
 
@@ -423,20 +530,18 @@ class ArcSketch {
       this.updateSketch();
     });
 
-    // Info about width variations
-    const widthInfoControl = document.createElement('li');
-    widthInfoControl.innerHTML = `
-      <div style="color: #666; font-style: italic;">Using separate font files: Condensed, Regular, Extended, Expanded</div>
-    `;
-    values.append(widthInfoControl);
-
     // Noise scale control
     const noiseScaleControl = document.createElement('li');
+    const noiseScaleRange = this.controlRanges.noiseScale;
     noiseScaleControl.innerHTML = `
       <label for="noiseScale-slider">Noise scale: </label>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="noiseScale-slider" min="0.01" max="0.5" step="0.01" value="${this.settings.noiseScale}" style="width: 150px;">
-        <input type="number" id="noiseScale-input" min="0.01" max="0.5" step="0.01" value="${this.settings.noiseScale}" style="width: 60px;">
+        <input type="range" id="noiseScale-slider" min="${noiseScaleRange.min}" max="${noiseScaleRange.max}" step="${noiseScaleRange.step}" value="${this.settings.noiseScale}" style="width: 150px;">
+        <input type="number" id="noiseScale-input" min="${noiseScaleRange.min}" max="${noiseScaleRange.max}" step="${noiseScaleRange.step}" value="${this.settings.noiseScale}" style="width: 60px;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="noiseScale-lock" style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
       </div>
     `;
     values.append(noiseScaleControl);
@@ -458,11 +563,16 @@ class ArcSketch {
 
     // Noise octaves control
     const noiseOctavesControl = document.createElement('li');
+    const noiseOctavesRange = this.controlRanges.noiseOctaves;
     noiseOctavesControl.innerHTML = `
       <label for="noiseOctaves-slider">Noise octaves: </label>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="noiseOctaves-slider" min="1" max="6" step="1" value="${this.settings.noiseOctaves}" style="width: 150px;">
-        <input type="number" id="noiseOctaves-input" min="1" max="6" step="1" value="${this.settings.noiseOctaves}" style="width: 60px;">
+        <input type="range" id="noiseOctaves-slider" min="${noiseOctavesRange.min}" max="${noiseOctavesRange.max}" step="${noiseOctavesRange.step}" value="${this.settings.noiseOctaves}" style="width: 150px;">
+        <input type="number" id="noiseOctaves-input" min="${noiseOctavesRange.min}" max="${noiseOctavesRange.max}" step="${noiseOctavesRange.step}" value="${this.settings.noiseOctaves}" style="width: 60px;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="noiseOctaves-lock" style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
       </div>
     `;
     values.append(noiseOctavesControl);
@@ -484,11 +594,16 @@ class ArcSketch {
 
     // Noise persistence control
     const noisePersistenceControl = document.createElement('li');
+    const noisePersistenceRange = this.controlRanges.noisePersistence;
     noisePersistenceControl.innerHTML = `
       <label for="noisePersistence-slider">Noise persistence: </label>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="noisePersistence-slider" min="0.1" max="1.0" step="0.1" value="${this.settings.noisePersistence}" style="width: 150px;">
-        <input type="number" id="noisePersistence-input" min="0.1" max="1.0" step="0.1" value="${this.settings.noisePersistence}" style="width: 60px;">
+        <input type="range" id="noisePersistence-slider" min="${noisePersistenceRange.min}" max="${noisePersistenceRange.max}" step="${noisePersistenceRange.step}" value="${this.settings.noisePersistence}" style="width: 150px;">
+        <input type="number" id="noisePersistence-input" min="${noisePersistenceRange.min}" max="${noisePersistenceRange.max}" step="${noisePersistenceRange.step}" value="${this.settings.noisePersistence}" style="width: 60px;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="noisePersistence-lock" style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
       </div>
     `;
     values.append(noisePersistenceControl);
@@ -510,11 +625,16 @@ class ArcSketch {
 
     // Noise contrast control
     const noiseContrastControl = document.createElement('li');
+    const noiseContrastRange = this.controlRanges.noiseContrast;
     noiseContrastControl.innerHTML = `
       <label for="noiseContrast-slider">Noise contrast: </label>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="noiseContrast-slider" min="0.1" max="3.0" step="0.1" value="${this.settings.noiseContrast}" style="width: 150px;">
-        <input type="number" id="noiseContrast-input" min="0.1" max="3.0" step="0.1" value="${this.settings.noiseContrast}" style="width: 60px;">
+        <input type="range" id="noiseContrast-slider" min="${noiseContrastRange.min}" max="${noiseContrastRange.max}" step="${noiseContrastRange.step}" value="${this.settings.noiseContrast}" style="width: 150px;">
+        <input type="number" id="noiseContrast-input" min="${noiseContrastRange.min}" max="${noiseContrastRange.max}" step="${noiseContrastRange.step}" value="${this.settings.noiseContrast}" style="width: 60px;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="noiseContrast-lock" style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
       </div>
     `;
     values.append(noiseContrastControl);
@@ -534,31 +654,164 @@ class ArcSketch {
       this.updateSketch();
     });
 
+    // Noise lacunarity control
+    const noiseLacunarityControl = document.createElement('li');
+    const noiseLacunarityRange = this.controlRanges.noiseLacunarity;
+    noiseLacunarityControl.innerHTML = `
+      <label for="noiseLacunarity-slider">Noise lacunarity: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="range" id="noiseLacunarity-slider" min="${noiseLacunarityRange.min}" max="${noiseLacunarityRange.max}" step="${noiseLacunarityRange.step}" value="${this.settings.noiseLacunarity}" style="width: 150px;">
+        <input type="number" id="noiseLacunarity-input" min="${noiseLacunarityRange.min}" max="${noiseLacunarityRange.max}" step="${noiseLacunarityRange.step}" value="${this.settings.noiseLacunarity}" style="width: 60px;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="noiseLacunarity-lock" style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
+    `;
+    values.append(noiseLacunarityControl);
+
+    const noiseLacunaritySlider = noiseLacunarityControl.querySelector('#noiseLacunarity-slider');
+    const noiseLacunarityInput = noiseLacunarityControl.querySelector('#noiseLacunarity-input');
+    
+    noiseLacunaritySlider.addEventListener('input', (e) => {
+      noiseLacunarityInput.value = e.target.value;
+      this.settings.noiseLacunarity = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+    
+    noiseLacunarityInput.addEventListener('input', (e) => {
+      noiseLacunaritySlider.value = e.target.value;
+      this.settings.noiseLacunarity = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+
     // Noise randomizer control
     const noiseRandomizerControl = document.createElement('li');
     noiseRandomizerControl.innerHTML = `
-      <button id="randomize-noise-btn" style="padding: 5px 10px;">Randomize Noise Settings</button>
+      <button id="randomize-noise-btn" class="btn">Randomize Settings</button>
     `;
     values.append(noiseRandomizerControl);
 
     const randomizeNoiseBtn = noiseRandomizerControl.querySelector('#randomize-noise-btn');
     randomizeNoiseBtn.addEventListener('click', () => {
-      // Generate random noise parameter values
-      this.settings.noiseScale = rndInt(5, 50) / 100; // 0.05 to 0.5
-      this.settings.noiseOctaves = rndInt(1, 6);
-      this.settings.noisePersistence = rndInt(10, 100) / 100; // 0.1 to 1.0
-      this.settings.noiseLacunarity = rndInt(15, 35) / 10; // 1.5 to 3.5
-      this.settings.noiseContrast = rndInt(10, 30) / 10; // 1.0 to 3.0
+      // Check lock states before randomizing
+      const nRowsLocked = document.getElementById('nRows-lock').checked;
+      const lineSpacingLocked = document.getElementById('lineSpacing-lock').checked;
+      const shiftTextPatternLocked = document.getElementById('shiftTextPattern-lock').checked;
+      const useBlanksLocked = document.getElementById('useBlanks-lock').checked;
+      const blanksProbLocked = document.getElementById('blanksProb-lock').checked;
+      const useNoiseLocked = document.getElementById('useNoise-lock').checked;
+      const noiseScaleLocked = document.getElementById('noiseScale-lock').checked;
+      const noiseOctavesLocked = document.getElementById('noiseOctaves-lock').checked;
+      const noisePersistenceLocked = document.getElementById('noisePersistence-lock').checked;
+      const noiseContrastLocked = document.getElementById('noiseContrast-lock').checked;
+      const noiseLacunarityLocked = document.getElementById('noiseLacunarity-lock').checked;
+      
+      // Generate random values only for unlocked parameters using centralized ranges
+      if (!nRowsLocked) {
+        const range = this.controlRanges.nRows;
+        this.settings.nRows = rndInt(range.min, range.max);
+      }
+      
+      if (!lineSpacingLocked) {
+        const range = this.controlRanges.lineSpacing;
+        this.settings.lineSpacing = rndInt(range.min * 10, range.max * 10) / 10;
+      }
+      
+      if (!shiftTextPatternLocked) {
+        this.settings.shiftTextPattern = Math.random() > 0.5;
+      }
+      
+      if (!useBlanksLocked) {
+        this.settings.useBlanks = Math.random() > 0.6; // 40% chance to use blanks
+      }
+      
+      if (!blanksProbLocked) {
+        const range = this.controlRanges.blanksProb;
+        this.settings.blanksProb = rndInt(range.min, range.max);
+      }
+      
+      if (!useNoiseLocked) {
+        this.settings.useNoise = Math.random() > 0.2; // 80% chance to use noise
+      }
+      
+      if (!noiseScaleLocked) {
+        const range = this.controlRanges.noiseScale;
+        this.settings.noiseScale = rndInt(range.min * 100, range.max * 100) / 100;
+      }
+      
+      if (!noiseOctavesLocked) {
+        const range = this.controlRanges.noiseOctaves;
+        this.settings.noiseOctaves = rndInt(range.min, range.max);
+      }
+      
+      if (!noisePersistenceLocked) {
+        const range = this.controlRanges.noisePersistence;
+        this.settings.noisePersistence = rndInt(range.min * 10, range.max * 10) / 10;
+      }
+      
+      if (!noiseContrastLocked) {
+        const range = this.controlRanges.noiseContrast;
+        this.settings.noiseContrast = rndInt(range.min * 10, range.max * 10) / 10;
+      }
+      
+      if (!noiseLacunarityLocked) {
+        const range = this.controlRanges.noiseLacunarity;
+        this.settings.noiseLacunarity = rndInt(range.min * 10, range.max * 10) / 10;
+      }
       
       // Update all the control inputs to reflect new values
-      noiseScaleSlider.value = this.settings.noiseScale;
-      noiseScaleInput.value = this.settings.noiseScale;
-      noiseOctavesSlider.value = this.settings.noiseOctaves;
-      noiseOctavesInput.value = this.settings.noiseOctaves;
-      noisePersistenceSlider.value = this.settings.noisePersistence;
-      noisePersistenceInput.value = this.settings.noisePersistence;
-      noiseContrastSlider.value = this.settings.noiseContrast;
-      noiseContrastInput.value = this.settings.noiseContrast;
+      if (!nRowsLocked) {
+        slider.value = this.settings.nRows;
+        input.value = this.settings.nRows;
+      }
+      
+      if (!lineSpacingLocked) {
+        lineSpacingSlider.value = this.settings.lineSpacing;
+        lineSpacingInput.value = this.settings.lineSpacing;
+      }
+      
+      if (!shiftTextPatternLocked) {
+        textPatternShiftCheckbox.checked = this.settings.shiftTextPattern;
+      }
+      
+      if (!useBlanksLocked) {
+        useBlanksCheckbox.checked = this.settings.useBlanks;
+      }
+      
+      if (!blanksProbLocked) {
+        blanksProbSlider.value = this.settings.blanksProb;
+        blanksProbInput.value = this.settings.blanksProb;
+      }
+      
+      if (!useNoiseLocked) {
+        noiseCheckbox.checked = this.settings.useNoise;
+      }
+      
+      if (!noiseScaleLocked) {
+        noiseScaleSlider.value = this.settings.noiseScale;
+        noiseScaleInput.value = this.settings.noiseScale;
+      }
+      
+      if (!noiseOctavesLocked) {
+        noiseOctavesSlider.value = this.settings.noiseOctaves;
+        noiseOctavesInput.value = this.settings.noiseOctaves;
+      }
+      
+      if (!noisePersistenceLocked) {
+        noisePersistenceSlider.value = this.settings.noisePersistence;
+        noisePersistenceInput.value = this.settings.noisePersistence;
+      }
+      
+      if (!noiseContrastLocked) {
+        noiseContrastSlider.value = this.settings.noiseContrast;
+        noiseContrastInput.value = this.settings.noiseContrast;
+      }
+      
+      if (!noiseLacunarityLocked) {
+        noiseLacunaritySlider.value = this.settings.noiseLacunarity;
+        noiseLacunarityInput.value = this.settings.noiseLacunarity;
+      }
       
       // Update sketch with new noise settings
       this.updateSketch();
@@ -574,9 +827,9 @@ class ArcSketch {
     const saveLoadControl = document.createElement('li');
     saveLoadControl.innerHTML = `
       <div style="display: flex; gap: 10px;">
-        <button id="save-settings-btn" style="padding: 5px 10px;">Save Settings</button>
-        <button id="load-settings-btn" style="padding: 5px 10px;">Load Settings</button>
-        <button id="load-from-svg-btn" style="padding: 5px 10px;">Load from SVG</button>
+        <button id="save-settings-btn" class="btn secondary">Save Settings</button>
+        <button id="load-settings-btn" class="btn secondary">Load Settings</button>
+        <button id="load-from-svg-btn" class="btn secondary">Load from SVG</button>
       </div>
     `;
     values.append(saveLoadControl);
@@ -668,7 +921,24 @@ class ArcSketch {
 
   saveSettings() {
     try {
-      localStorage.setItem('arcSketchSettings', JSON.stringify(this.settings));
+      // Save both settings and lock states
+      const settingsData = {
+        settings: this.settings,
+        locks: {
+          nRows: document.getElementById('nRows-lock')?.checked || false,
+          lineSpacing: document.getElementById('lineSpacing-lock')?.checked || false,
+          shiftTextPattern: document.getElementById('shiftTextPattern-lock')?.checked || false,
+          useBlanks: document.getElementById('useBlanks-lock')?.checked || false,
+          blanksProb: document.getElementById('blanksProb-lock')?.checked || false,
+          useNoise: document.getElementById('useNoise-lock')?.checked || false,
+          noiseScale: document.getElementById('noiseScale-lock')?.checked || false,
+          noiseOctaves: document.getElementById('noiseOctaves-lock')?.checked || false,
+          noisePersistence: document.getElementById('noisePersistence-lock')?.checked || false,
+          noiseContrast: document.getElementById('noiseContrast-lock')?.checked || false,
+          noiseLacunarity: document.getElementById('noiseLacunarity-lock')?.checked || false
+        }
+      };
+      localStorage.setItem('arcSketchSettings', JSON.stringify(settingsData));
       console.log('Settings saved successfully');
     } catch (e) {
       console.error('Failed to save settings:', e);
@@ -679,9 +949,47 @@ class ArcSketch {
     try {
       const saved = localStorage.getItem('arcSketchSettings');
       if (saved) {
-        const loadedSettings = JSON.parse(saved);
-        // Merge loaded settings with defaults (preserve any new settings)
-        this.settings = { ...this.settings, ...loadedSettings };
+        const settingsData = JSON.parse(saved);
+        
+        // Handle both old format (just settings) and new format (settings + locks)
+        if (settingsData.settings) {
+          // New format with locks
+          this.settings = { ...this.settings, ...settingsData.settings };
+          
+          // Restore lock states
+          if (settingsData.locks) {
+            setTimeout(() => {
+              // Use setTimeout to ensure DOM elements are ready
+              const nRowsLock = document.getElementById('nRows-lock');
+              const lineSpacingLock = document.getElementById('lineSpacing-lock');
+              const shiftTextPatternLock = document.getElementById('shiftTextPattern-lock');
+              const useBlanksLock = document.getElementById('useBlanks-lock');
+              const blanksProbLock = document.getElementById('blanksProb-lock');
+              const useNoiseLock = document.getElementById('useNoise-lock');
+              const noiseScaleLock = document.getElementById('noiseScale-lock');
+              const noiseOctavesLock = document.getElementById('noiseOctaves-lock');
+              const noisePersistenceLock = document.getElementById('noisePersistence-lock');
+              const noiseContrastLock = document.getElementById('noiseContrast-lock');
+              const noiseLacunarityLock = document.getElementById('noiseLacunarity-lock');
+              
+              if (nRowsLock) nRowsLock.checked = settingsData.locks.nRows || false;
+              if (lineSpacingLock) lineSpacingLock.checked = settingsData.locks.lineSpacing || false;
+              if (shiftTextPatternLock) shiftTextPatternLock.checked = settingsData.locks.shiftTextPattern || false;
+              if (useBlanksLock) useBlanksLock.checked = settingsData.locks.useBlanks || false;
+              if (blanksProbLock) blanksProbLock.checked = settingsData.locks.blanksProb || false;
+              if (useNoiseLock) useNoiseLock.checked = settingsData.locks.useNoise || false;
+              if (noiseScaleLock) noiseScaleLock.checked = settingsData.locks.noiseScale || false;
+              if (noiseOctavesLock) noiseOctavesLock.checked = settingsData.locks.noiseOctaves || false;
+              if (noisePersistenceLock) noisePersistenceLock.checked = settingsData.locks.noisePersistence || false;
+              if (noiseContrastLock) noiseContrastLock.checked = settingsData.locks.noiseContrast || false;
+              if (noiseLacunarityLock) noiseLacunarityLock.checked = settingsData.locks.noiseLacunarity || false;
+            }, 100);
+          }
+        } else {
+          // Old format (just settings)
+          this.settings = { ...this.settings, ...settingsData };
+        }
+        
         console.log('Settings loaded successfully');
       }
     } catch (e) {
@@ -772,10 +1080,32 @@ class ArcSketch {
       nRowsInput.value = settings.nRows;
     }
     
+    // Update line spacing controls
+    const lineSpacingSlider = document.getElementById('lineSpacing-slider');
+    const lineSpacingInput = document.getElementById('lineSpacing-input');
+    if (lineSpacingSlider && lineSpacingInput && settings.lineSpacing !== undefined) {
+      lineSpacingSlider.value = settings.lineSpacing;
+      lineSpacingInput.value = settings.lineSpacing;
+    }
+    
     // Update text pattern shift toggle
     const textPatternShiftCheckbox = document.getElementById('shiftTextPattern-checkbox');
     if (textPatternShiftCheckbox && settings.shiftTextPattern !== undefined) {
       textPatternShiftCheckbox.checked = settings.shiftTextPattern;
+    }
+    
+    // Update use blanks toggle
+    const useBlanksCheckbox = document.getElementById('useBlanks-checkbox');
+    if (useBlanksCheckbox && settings.useBlanks !== undefined) {
+      useBlanksCheckbox.checked = settings.useBlanks;
+    }
+    
+    // Update blanks probability controls
+    const blanksProbSlider = document.getElementById('blanksProb-slider');
+    const blanksProbInput = document.getElementById('blanksProb-input');
+    if (blanksProbSlider && blanksProbInput && settings.blanksProb !== undefined) {
+      blanksProbSlider.value = settings.blanksProb;
+      blanksProbInput.value = settings.blanksProb;
     }
     
     // Update noise toggle
@@ -814,6 +1144,49 @@ class ArcSketch {
     if (noiseContrastSlider && noiseContrastInput && settings.noiseContrast !== undefined) {
       noiseContrastSlider.value = settings.noiseContrast;
       noiseContrastInput.value = settings.noiseContrast;
+    }
+    
+    // Update noise lacunarity controls
+    const noiseLacunaritySlider = document.getElementById('noiseLacunarity-slider');
+    const noiseLacunarityInput = document.getElementById('noiseLacunarity-input');
+    if (noiseLacunaritySlider && noiseLacunarityInput && settings.noiseLacunarity !== undefined) {
+      noiseLacunaritySlider.value = settings.noiseLacunarity;
+      noiseLacunarityInput.value = settings.noiseLacunarity;
+    }
+    
+    // Load lock states from localStorage if available
+    try {
+      const saved = localStorage.getItem('arcSketchSettings');
+      if (saved) {
+        const settingsData = JSON.parse(saved);
+        if (settingsData.locks) {
+          const nRowsLock = document.getElementById('nRows-lock');
+          const lineSpacingLock = document.getElementById('lineSpacing-lock');
+          const shiftTextPatternLock = document.getElementById('shiftTextPattern-lock');
+          const useBlanksLock = document.getElementById('useBlanks-lock');
+          const blanksProbLock = document.getElementById('blanksProb-lock');
+          const useNoiseLock = document.getElementById('useNoise-lock');
+          const noiseScaleLock = document.getElementById('noiseScale-lock');
+          const noiseOctavesLock = document.getElementById('noiseOctaves-lock');
+          const noisePersistenceLock = document.getElementById('noisePersistence-lock');
+          const noiseContrastLock = document.getElementById('noiseContrast-lock');
+          const noiseLacunarityLock = document.getElementById('noiseLacunarity-lock');
+          
+          if (nRowsLock) nRowsLock.checked = settingsData.locks.nRows || false;
+          if (lineSpacingLock) lineSpacingLock.checked = settingsData.locks.lineSpacing || false;
+          if (shiftTextPatternLock) shiftTextPatternLock.checked = settingsData.locks.shiftTextPattern || false;
+          if (useBlanksLock) useBlanksLock.checked = settingsData.locks.useBlanks || false;
+          if (blanksProbLock) blanksProbLock.checked = settingsData.locks.blanksProb || false;
+          if (useNoiseLock) useNoiseLock.checked = settingsData.locks.useNoise || false;
+          if (noiseScaleLock) noiseScaleLock.checked = settingsData.locks.noiseScale || false;
+          if (noiseOctavesLock) noiseOctavesLock.checked = settingsData.locks.noiseOctaves || false;
+          if (noisePersistenceLock) noisePersistenceLock.checked = settingsData.locks.noisePersistence || false;
+          if (noiseContrastLock) noiseContrastLock.checked = settingsData.locks.noiseContrast || false;
+          if (noiseLacunarityLock) noiseLacunarityLock.checked = settingsData.locks.noiseLacunarity || false;
+        }
+      }
+    } catch (e) {
+      console.error('Failed to restore lock states:', e);
     }
   }
 } 

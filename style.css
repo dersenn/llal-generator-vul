@@ -59,7 +59,7 @@ rotorange
   position: fixed;
   top: 0;
   right: 0;
-  width: 250px;
+  width: 330px;
   height: 100vh;
   background-color: rgba(255,255,255,.95);
   z-index: 99;
@@ -120,6 +120,7 @@ rotorange
 }
 
 .btn {
+  font-family: 'Courier New', Courier, monospace;
   padding: 0.75em 1em;
   color: #fff;
   background-color: #FF5909;
@@ -130,6 +131,11 @@ rotorange
   font-size: 12px;
   text-align: center;
   width: 100%;
+  border: none;
+}
+
+.btn.secondary {
+  background-color: #bbb;
 }
 
 .btn:hover {
