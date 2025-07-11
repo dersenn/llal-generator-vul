@@ -73,12 +73,12 @@ class ArcSketch {
     this.controlSettings = {
       // Layout controls
       nRows: {
-        min: 10,
-        max: 300,
+        min: 30,
+        max: 180,
         step: 1,
         default: 60,
         value: 60,
-        locked: false
+        locked: true
       },
       lineSpacing: {
         min: 0.5,
@@ -91,8 +91,9 @@ class ArcSketch {
       
       // Text controls
       shiftTextPattern: {
-        default: true,
-        value: true,
+        options: ['none', 'forward', 'backward', 'random'],
+        default: 'none',
+        value: 'none',
         locked: true
       },
       useBlanks: {
@@ -106,7 +107,7 @@ class ArcSketch {
         step: 5,
         default: 50,
         value: 50,
-        locked: false
+        locked: true
       },
       
       // Noise controls
@@ -119,6 +120,11 @@ class ArcSketch {
         default: true,
         value: true,
         locked: true
+      },
+      inverseWidthMapping: {
+        default: false,
+        value: false,
+        locked: false
       },
       noiseScale: {
         min: 0.005,
@@ -170,8 +176,8 @@ class ArcSketch {
       nCols: 20,
       leftAngle: 24,
       rightAngle: 24,
-      colBG: '#ffffff',
-      colFG: '#000000',
+      colBG: '#000000',
+      colFG: '#ffffff',
       txt: 'LLAL'
     };
 
@@ -359,10 +365,27 @@ class ArcSketch {
         fullText += txt;
       }
       
-      // Apply text pattern shifting if enabled
-      if (this.controlSettings.shiftTextPattern.value) {
-        // Shift the starting position by row number
-        const shiftAmount = row % txt.length;
+      // Apply text pattern shifting based on selected mode
+      const shiftMode = this.controlSettings.shiftTextPattern.value;
+      if (shiftMode !== 'none') {
+        let shiftAmount = 0;
+        
+        switch (shiftMode) {
+          case 'forward':
+            // Shift forward by row number (current behavior)
+            shiftAmount = row % txt.length;
+            break;
+          case 'backward':
+            // Shift backward by row number
+            shiftAmount = txt.length - (row % txt.length);
+            break;
+          case 'random':
+            // Use seeded random for consistent results
+            const rowSeed = this.seed ? this.seed.rnd() : Math.random();
+            shiftAmount = Math.floor(rowSeed * txt.length);
+            break;
+        }
+        
         if (shiftAmount > 0) {
           // Move the first 'shiftAmount' characters to the end
           fullText = fullText.slice(shiftAmount) + fullText.slice(0, shiftAmount);
@@ -422,12 +445,21 @@ class ArcSketch {
             noiseValue = Math.sign(noiseValue) * Math.pow(Math.abs(noiseValue), contrast);
           }
           
-          // Map noise value (-1 to 1) to width range
-          const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
+          // Clamp noise value to ensure it's within expected range
+          noiseValue = Math.max(-1, Math.min(1, noiseValue));
           
-          // Use predefined width steps for CSS classes
-          const widthIndex = Math.floor(normalizedNoise * (this.staticSettings.wdths.length - 1));
-          width = this.staticSettings.wdths[widthIndex];
+          // Map noise value (-1 to 1) to width range
+          let normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
+          
+          // If inverse mapping is enabled, invert the normalized noise
+          if (this.controlSettings.inverseWidthMapping.value) {
+            normalizedNoise = 1 - normalizedNoise;
+          }
+          
+          // Use predefined width steps for CSS classes with bounds checking
+          const widthIndex = Math.floor(normalizedNoise * this.staticSettings.wdths.length);
+          const clampedIndex = Math.max(0, Math.min(this.staticSettings.wdths.length - 1, widthIndex));
+          width = this.staticSettings.wdths[clampedIndex];
         } else {
           // Random predefined width
           width = this.staticSettings.wdths[rndInt(0, this.staticSettings.wdths.length - 1)];
@@ -535,10 +567,20 @@ class ArcSketch {
 
     // Text pattern shifting control
     const textPatternShiftControl = document.createElement('li');
+    
+    // Ensure options array exists (for backward compatibility)
+    if (!this.controlSettings.shiftTextPattern.options) {
+      this.controlSettings.shiftTextPattern.options = ['none', 'forward', 'backward', 'random'];
+    }
+    
     textPatternShiftControl.innerHTML = `
-      <label for="shiftTextPattern-checkbox">Shift text pattern per row: </label>
+      <label for="shiftTextPattern-select">Shift text pattern per row: </label>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="checkbox" id="shiftTextPattern-checkbox" ${this.controlSettings.shiftTextPattern.value ? 'checked' : ''}>
+        <select id="shiftTextPattern-select" style="width: 150px;">
+          ${this.controlSettings.shiftTextPattern.options.map(option => 
+            `<option value="${option}" ${option === this.controlSettings.shiftTextPattern.value ? 'selected' : ''}>${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
+          ).join('')}
+        </select>
         <label style="display: flex; align-items: center; gap: 5px;">
           <input type="checkbox" id="shiftTextPattern-lock" ${this.controlSettings.shiftTextPattern.locked ? 'checked' : ''} style="margin: 0;">
           <span style="font-size: 0.9em;">🔒</span>
@@ -547,11 +589,11 @@ class ArcSketch {
     `;
     values.append(textPatternShiftControl);
 
-    const textPatternShiftCheckbox = textPatternShiftControl.querySelector('#shiftTextPattern-checkbox');
+    const textPatternShiftSelect = textPatternShiftControl.querySelector('#shiftTextPattern-select');
     const textPatternShiftLock = textPatternShiftControl.querySelector('#shiftTextPattern-lock');
     
-    textPatternShiftCheckbox.addEventListener('change', (e) => {
-      this.controlSettings.shiftTextPattern.value = e.target.checked;
+    textPatternShiftSelect.addEventListener('change', (e) => {
+      this.controlSettings.shiftTextPattern.value = e.target.value;
       this.updateSketch();
     });
 
@@ -681,6 +723,33 @@ class ArcSketch {
     // Sync lock state with internal state
     normalizeNoiseLock.addEventListener('change', (e) => {
       this.controlSettings.normalizeNoise.locked = e.target.checked;
+    });
+
+    // Inverse width mapping control
+    const inverseWidthMappingControl = document.createElement('li');
+    inverseWidthMappingControl.innerHTML = `
+      <label for="inverseWidthMapping-checkbox">Inverse width mapping: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="checkbox" id="inverseWidthMapping-checkbox" ${this.controlSettings.inverseWidthMapping.value ? 'checked' : ''}>
+        <label style="display: flex; align-items: center; gap: 5px;">
+          <input type="checkbox" id="inverseWidthMapping-lock" ${this.controlSettings.inverseWidthMapping.locked ? 'checked' : ''} style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
+    `;
+    values.append(inverseWidthMappingControl);
+
+    const inverseWidthMappingCheckbox = inverseWidthMappingControl.querySelector('#inverseWidthMapping-checkbox');
+    const inverseWidthMappingLock = inverseWidthMappingControl.querySelector('#inverseWidthMapping-lock');
+    
+    inverseWidthMappingCheckbox.addEventListener('change', (e) => {
+      this.controlSettings.inverseWidthMapping.value = e.target.checked;
+      this.updateSketch();
+    });
+
+    // Sync lock state with internal state
+    inverseWidthMappingLock.addEventListener('change', (e) => {
+      this.controlSettings.inverseWidthMapping.locked = e.target.checked;
     });
 
     // Noise scale control
@@ -885,6 +954,7 @@ class ArcSketch {
       const blanksProbLocked = this.controlSettings.blanksProb.locked;
       const useNoiseLocked = this.controlSettings.useNoise.locked;
       const normalizeNoiseLocked = this.controlSettings.normalizeNoise.locked;
+      const inverseWidthMappingLocked = this.controlSettings.inverseWidthMapping.locked;
       const noiseScaleLocked = this.controlSettings.noiseScale.locked;
       const noiseOctavesLocked = this.controlSettings.noiseOctaves.locked;
       const noisePersistenceLocked = this.controlSettings.noisePersistence.locked;
@@ -903,7 +973,11 @@ class ArcSketch {
       }
       
       if (!shiftTextPatternLocked) {
-        this.controlSettings.shiftTextPattern.value = Math.random() > 0.5;
+        // Ensure options array exists
+        if (!this.controlSettings.shiftTextPattern.options) {
+          this.controlSettings.shiftTextPattern.options = ['none', 'forward', 'backward', 'random'];
+        }
+        this.controlSettings.shiftTextPattern.value = this.controlSettings.shiftTextPattern.options[rndInt(0, this.controlSettings.shiftTextPattern.options.length - 1)];
       }
       
       if (!useBlanksLocked) {
@@ -921,6 +995,10 @@ class ArcSketch {
       
       if (!normalizeNoiseLocked) {
         this.controlSettings.normalizeNoise.value = Math.random() > 0.5; // 50% chance to normalize noise
+      }
+      
+      if (!inverseWidthMappingLocked) {
+        this.controlSettings.inverseWidthMapping.value = Math.random() > 0.5; // 50% chance to inverse width mapping
       }
       
       if (!noiseScaleLocked) {
@@ -960,7 +1038,7 @@ class ArcSketch {
       }
       
       if (!shiftTextPatternLocked) {
-        textPatternShiftCheckbox.checked = this.controlSettings.shiftTextPattern.value;
+        textPatternShiftSelect.value = this.controlSettings.shiftTextPattern.value;
       }
       
       if (!useBlanksLocked) {
@@ -978,6 +1056,13 @@ class ArcSketch {
       
       if (!normalizeNoiseLocked) {
         normalizeNoiseCheckbox.checked = this.controlSettings.normalizeNoise.value;
+      }
+      
+      if (!inverseWidthMappingLocked) {
+        const inverseWidthMappingCheckbox = document.getElementById('inverseWidthMapping-checkbox');
+        if (inverseWidthMappingCheckbox) {
+          inverseWidthMappingCheckbox.checked = this.controlSettings.inverseWidthMapping.value;
+        }
       }
       
       if (!noiseScaleLocked) {
@@ -1133,8 +1218,21 @@ class ArcSketch {
         
         // Handle both old format and new format
         if (settingsData.controlSettings) {
-          // New format with controlSettings
-          this.controlSettings = { ...this.controlSettings, ...settingsData.controlSettings };
+          // New format with controlSettings - merge more carefully
+          Object.keys(settingsData.controlSettings).forEach(key => {
+            if (this.controlSettings[key]) {
+              // For shiftTextPattern, preserve the options array
+              if (key === 'shiftTextPattern') {
+                this.controlSettings[key] = {
+                  ...this.controlSettings[key],
+                  ...settingsData.controlSettings[key],
+                  options: this.controlSettings[key].options || ['none', 'forward', 'backward', 'random']
+                };
+              } else {
+                this.controlSettings[key] = { ...this.controlSettings[key], ...settingsData.controlSettings[key] };
+              }
+            }
+          });
           if (settingsData.staticSettings) {
             this.staticSettings = { ...this.staticSettings, ...settingsData.staticSettings };
           }
@@ -1145,7 +1243,12 @@ class ArcSketch {
             // Map old settings to new structure
             Object.keys(settingsData.settings).forEach(key => {
               if (this.controlSettings[key]) {
-                this.controlSettings[key].value = settingsData.settings[key];
+                // Special handling for shiftTextPattern migration from boolean to string
+                if (key === 'shiftTextPattern') {
+                  this.controlSettings[key].value = settingsData.settings[key] ? 'forward' : 'none';
+                } else {
+                  this.controlSettings[key].value = settingsData.settings[key];
+                }
               }
             });
           }
@@ -1214,8 +1317,21 @@ class ArcSketch {
               
               // Handle both old format and new format
               if (settingsData.controlSettings) {
-                // New format with controlSettings
-                this.controlSettings = { ...this.controlSettings, ...settingsData.controlSettings };
+                // New format with controlSettings - merge more carefully
+                Object.keys(settingsData.controlSettings).forEach(key => {
+                  if (this.controlSettings[key]) {
+                    // For shiftTextPattern, preserve the options array
+                    if (key === 'shiftTextPattern') {
+                      this.controlSettings[key] = {
+                        ...this.controlSettings[key],
+                        ...settingsData.controlSettings[key],
+                        options: this.controlSettings[key].options || ['none', 'forward', 'backward', 'random']
+                      };
+                    } else {
+                      this.controlSettings[key] = { ...this.controlSettings[key], ...settingsData.controlSettings[key] };
+                    }
+                  }
+                });
                 if (settingsData.staticSettings) {
                   this.staticSettings = { ...this.staticSettings, ...settingsData.staticSettings };
                 }
@@ -1224,7 +1340,12 @@ class ArcSketch {
                 console.log('Migrating old settings format from SVG...');
                 Object.keys(settingsData).forEach(key => {
                   if (this.controlSettings[key]) {
-                    this.controlSettings[key].value = settingsData[key];
+                    // Special handling for shiftTextPattern migration from boolean to string
+                    if (key === 'shiftTextPattern') {
+                      this.controlSettings[key].value = settingsData[key] ? 'forward' : 'none';
+                    } else {
+                      this.controlSettings[key].value = settingsData[key];
+                    }
                   }
                 });
               }
@@ -1263,6 +1384,7 @@ class ArcSketch {
     this.controlSettings.blanksProb.locked = document.getElementById('blanksProb-lock')?.checked || false;
     this.controlSettings.useNoise.locked = document.getElementById('useNoise-lock')?.checked || false;
     this.controlSettings.normalizeNoise.locked = document.getElementById('normalizeNoise-lock')?.checked || false;
+    this.controlSettings.inverseWidthMapping.locked = document.getElementById('inverseWidthMapping-lock')?.checked || false;
     this.controlSettings.noiseScale.locked = document.getElementById('noiseScale-lock')?.checked || false;
     this.controlSettings.noiseOctaves.locked = document.getElementById('noiseOctaves-lock')?.checked || false;
     this.controlSettings.noisePersistence.locked = document.getElementById('noisePersistence-lock')?.checked || false;
@@ -1278,6 +1400,7 @@ class ArcSketch {
       blanksProb: this.controlSettings.blanksProb.locked,
       useNoise: this.controlSettings.useNoise.locked,
       normalizeNoise: this.controlSettings.normalizeNoise.locked,
+      inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
       noiseScale: this.controlSettings.noiseScale.locked,
       noiseOctaves: this.controlSettings.noiseOctaves.locked,
       noisePersistence: this.controlSettings.noisePersistence.locked,
@@ -1308,9 +1431,9 @@ class ArcSketch {
     }
     
     // Update text pattern shift toggle
-    const textPatternShiftCheckbox = document.getElementById('shiftTextPattern-checkbox');
-    if (textPatternShiftCheckbox) {
-      textPatternShiftCheckbox.checked = this.controlSettings.shiftTextPattern.value;
+    const textPatternShiftSelect = document.getElementById('shiftTextPattern-select');
+    if (textPatternShiftSelect) {
+      textPatternShiftSelect.value = this.controlSettings.shiftTextPattern.value;
     }
     
     // Update use blanks toggle
@@ -1337,6 +1460,12 @@ class ArcSketch {
     const normalizeNoiseCheckbox = document.getElementById('normalizeNoise-checkbox');
     if (normalizeNoiseCheckbox) {
       normalizeNoiseCheckbox.checked = this.controlSettings.normalizeNoise.value;
+    }
+    
+    // Update inverse width mapping toggle
+    const inverseWidthMappingCheckbox = document.getElementById('inverseWidthMapping-checkbox');
+    if (inverseWidthMappingCheckbox) {
+      inverseWidthMappingCheckbox.checked = this.controlSettings.inverseWidthMapping.value;
     }
     
     // Update noise scale controls
@@ -1392,6 +1521,7 @@ class ArcSketch {
         blanksProb: this.controlSettings.blanksProb.locked,
         useNoise: this.controlSettings.useNoise.locked,
         normalizeNoise: this.controlSettings.normalizeNoise.locked,
+        inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
         noiseScale: this.controlSettings.noiseScale.locked,
         noiseOctaves: this.controlSettings.noiseOctaves.locked,
         noisePersistence: this.controlSettings.noisePersistence.locked,
@@ -1409,6 +1539,7 @@ class ArcSketch {
       const blanksProbLock = document.getElementById('blanksProb-lock');
       const useNoiseLock = document.getElementById('useNoise-lock');
       const normalizeNoiseLock = document.getElementById('normalizeNoise-lock');
+      const inverseWidthMappingLock = document.getElementById('inverseWidthMapping-lock');
       const noiseScaleLock = document.getElementById('noiseScale-lock');
       const noiseOctavesLock = document.getElementById('noiseOctaves-lock');
       const noisePersistenceLock = document.getElementById('noisePersistence-lock');
@@ -1422,6 +1553,7 @@ class ArcSketch {
       if (blanksProbLock) blanksProbLock.checked = lockStates.blanksProb || false;
       if (useNoiseLock) useNoiseLock.checked = lockStates.useNoise || false;
       if (normalizeNoiseLock) normalizeNoiseLock.checked = lockStates.normalizeNoise || false;
+      if (inverseWidthMappingLock) inverseWidthMappingLock.checked = lockStates.inverseWidthMapping || false;
       if (noiseScaleLock) noiseScaleLock.checked = lockStates.noiseScale || false;
       if (noiseOctavesLock) noiseOctavesLock.checked = lockStates.noiseOctaves || false;
       if (noisePersistenceLock) noisePersistenceLock.checked = lockStates.noisePersistence || false;
@@ -1436,6 +1568,7 @@ class ArcSketch {
       this.controlSettings.blanksProb.locked = lockStates.blanksProb || false;
       this.controlSettings.useNoise.locked = lockStates.useNoise || false;
       this.controlSettings.normalizeNoise.locked = lockStates.normalizeNoise || false;
+      this.controlSettings.inverseWidthMapping.locked = lockStates.inverseWidthMapping || false;
       this.controlSettings.noiseScale.locked = lockStates.noiseScale || false;
       this.controlSettings.noiseOctaves.locked = lockStates.noiseOctaves || false;
       this.controlSettings.noisePersistence.locked = lockStates.noisePersistence || false;
