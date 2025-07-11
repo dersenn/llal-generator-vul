@@ -38,16 +38,16 @@ class SketchManager {
     // This is the only place you need to modify to add a new sketch
     const sketchDefinitions = [
       {
-        name: 'firework-01',
-        displayName: 'Firework 01',
-        class: FireworkSketch,
-        description: 'Firework pattern with LLAL text'
-      },
-      {
         name: 'arc-01',
         displayName: 'Arc Text 01',
         class: ArcSketch,
         description: 'Arc text layout with cone pattern'
+      },
+      {
+        name: 'firework-01',
+        displayName: 'Firework 01',
+        class: FireworkSketch,
+        description: 'Firework pattern with LLAL text'
       }
       // To add a new sketch, just add an entry here:
       // {
