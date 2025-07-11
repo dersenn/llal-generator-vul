@@ -165,6 +165,18 @@ class ArcSketch {
         default: 2.0,
         value: 2.0,
         locked: false
+      },
+      
+      // Color controls
+      colBG: {
+        default: '#000000',
+        value: '#000000',
+        locked: true
+      },
+      colFG: {
+        default: '#ffffff',
+        value: '#ffffff',
+        locked: true
       }
     };
 
@@ -176,8 +188,6 @@ class ArcSketch {
       nCols: 20,
       leftAngle: 24,
       rightAngle: 24,
-      colBG: '#000000',
-      colFG: '#ffffff',
       txt: 'LLAL'
     };
 
@@ -199,7 +209,7 @@ class ArcSketch {
 
     document.body.style['background-color'] = '#eee';
     this.svg.stage.style['font-family'] = 'LLAL-linear';
-    this.svg.stage.style['background-color'] = this.staticSettings.colBG;
+    this.svg.stage.style['background-color'] = this.controlSettings.colBG.value;
   }
 
   createWidthStyles() {
@@ -209,7 +219,7 @@ class ArcSketch {
     
     // Define CSS classes for each width variation using distinct font files
     const cssRules = `
-      .st0 { font-size: ${this.fSize}; fill: ${this.staticSettings.colFG}; }
+      .st0 { font-size: ${this.fSize}; fill: ${this.controlSettings.colFG.value}; }
       .width-50 { font-family: 'LLALLogoLinear-Condensed'; }
       .width-100 { font-family: 'LLALLogoLinear-Regular'; }
       .width-150 { font-family: 'LLALLogoLinear-Extended'; }
@@ -328,7 +338,7 @@ class ArcSketch {
     const nRows = this.controlSettings.nRows.value;
     const fSize = this.fSize;
     const txt = this.staticSettings.txt;
-    const colFG = this.staticSettings.colFG;
+    const colFG = this.controlSettings.colFG.value;
     
     // Calculate radius step between lines
     const radiusStep = (rOuter - rInner) / (nRows - 1);
@@ -900,7 +910,7 @@ class ArcSketch {
       this.controlSettings.noiseContrast.locked = e.target.checked;
     });
 
-    // Noise lacunarity control
+          // Noise lacunarity control
     const noiseLacunarityControl = document.createElement('li');
     const noiseLacunarityRange = this.controlSettings.noiseLacunarity;
     noiseLacunarityControl.innerHTML = `
@@ -937,6 +947,80 @@ class ArcSketch {
       this.controlSettings.noiseLacunarity.locked = e.target.checked;
     });
 
+    // Color controls
+
+    // Background color control
+    const backgroundColorControl = document.createElement('li');
+    backgroundColorControl.innerHTML = `
+      <label for="colBG-input">Background color: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="color" id="colBG-input" value="${this.controlSettings.colBG.value}" style="width: 50px; height: 30px;">
+        <input type="text" id="colBG-text" value="${this.controlSettings.colBG.value}" style="width: 80px; font-family: monospace;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="colBG-lock" ${this.controlSettings.colBG.locked ? 'checked' : ''} style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
+    `;
+    values.append(backgroundColorControl);
+
+    const backgroundColorInput = backgroundColorControl.querySelector('#colBG-input');
+    const backgroundColorText = backgroundColorControl.querySelector('#colBG-text');
+    const backgroundColorLock = backgroundColorControl.querySelector('#colBG-lock');
+    
+    backgroundColorInput.addEventListener('input', (e) => {
+      backgroundColorText.value = e.target.value;
+      this.controlSettings.colBG.value = e.target.value;
+      this.updateSketch();
+    });
+    
+    backgroundColorText.addEventListener('input', (e) => {
+      backgroundColorInput.value = e.target.value;
+      this.controlSettings.colBG.value = e.target.value;
+      this.updateSketch();
+    });
+
+    // Sync lock state with internal state
+    backgroundColorLock.addEventListener('change', (e) => {
+      this.controlSettings.colBG.locked = e.target.checked;
+    });
+
+    // Foreground color control
+    const foregroundColorControl = document.createElement('li');
+    foregroundColorControl.innerHTML = `
+      <label for="colFG-input">Text color: </label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="color" id="colFG-input" value="${this.controlSettings.colFG.value}" style="width: 50px; height: 30px;">
+        <input type="text" id="colFG-text" value="${this.controlSettings.colFG.value}" style="width: 80px; font-family: monospace;">
+        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+          <input type="checkbox" id="colFG-lock" ${this.controlSettings.colFG.locked ? 'checked' : ''} style="margin: 0;">
+          <span style="font-size: 0.9em;">🔒</span>
+        </label>
+      </div>
+    `;
+    values.append(foregroundColorControl);
+
+    const foregroundColorInput = foregroundColorControl.querySelector('#colFG-input');
+    const foregroundColorText = foregroundColorControl.querySelector('#colFG-text');
+    const foregroundColorLock = foregroundColorControl.querySelector('#colFG-lock');
+    
+    foregroundColorInput.addEventListener('input', (e) => {
+      foregroundColorText.value = e.target.value;
+      this.controlSettings.colFG.value = e.target.value;
+      this.updateSketch();
+    });
+    
+    foregroundColorText.addEventListener('input', (e) => {
+      foregroundColorInput.value = e.target.value;
+      this.controlSettings.colFG.value = e.target.value;
+      this.updateSketch();
+    });
+
+    // Sync lock state with internal state
+    foregroundColorLock.addEventListener('change', (e) => {
+      this.controlSettings.colFG.locked = e.target.checked;
+    });
+
     // Settings randomizer control
     const settingsRandomizerControl = document.createElement('li');
     settingsRandomizerControl.innerHTML = `
@@ -960,6 +1044,8 @@ class ArcSketch {
       const noisePersistenceLocked = this.controlSettings.noisePersistence.locked;
       const noiseContrastLocked = this.controlSettings.noiseContrast.locked;
       const noiseLacunarityLocked = this.controlSettings.noiseLacunarity.locked;
+      const colBGLocked = this.controlSettings.colBG.locked;
+      const colFGLocked = this.controlSettings.colFG.locked;
       
       // Generate random values only for unlocked parameters
       if (!nRowsLocked) {
@@ -1026,6 +1112,23 @@ class ArcSketch {
         this.controlSettings.noiseLacunarity.value = rndInt(range.min * 10, range.max * 10) / 10;
       }
       
+      // Generate random colors
+      if (!colBGLocked) {
+        // Generate random dark color for background
+        const r = rndInt(0, 80);  // Keep it dark
+        const g = rndInt(0, 80);
+        const b = rndInt(0, 80);
+        this.controlSettings.colBG.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      }
+      
+      if (!colFGLocked) {
+        // Generate random light color for foreground
+        const r = rndInt(180, 255);  // Keep it light
+        const g = rndInt(180, 255);
+        const b = rndInt(180, 255);
+        this.controlSettings.colFG.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      }
+      
       // Update all the control inputs to reflect new values
       if (!nRowsLocked) {
         slider.value = this.controlSettings.nRows.value;
@@ -1088,6 +1191,25 @@ class ArcSketch {
       if (!noiseLacunarityLocked) {
         noiseLacunaritySlider.value = this.controlSettings.noiseLacunarity.value;
         noiseLacunarityInput.value = this.controlSettings.noiseLacunarity.value;
+      }
+      
+      // Update color controls
+      if (!colBGLocked) {
+        const backgroundColorInput = document.getElementById('colBG-input');
+        const backgroundColorText = document.getElementById('colBG-text');
+        if (backgroundColorInput && backgroundColorText) {
+          backgroundColorInput.value = this.controlSettings.colBG.value;
+          backgroundColorText.value = this.controlSettings.colBG.value;
+        }
+      }
+      
+      if (!colFGLocked) {
+        const foregroundColorInput = document.getElementById('colFG-input');
+        const foregroundColorText = document.getElementById('colFG-text');
+        if (foregroundColorInput && foregroundColorText) {
+          foregroundColorInput.value = this.controlSettings.colFG.value;
+          foregroundColorText.value = this.controlSettings.colFG.value;
+        }
       }
       
       // Update sketch with new noise settings
@@ -1165,6 +1287,9 @@ class ArcSketch {
     // Update font size based on new number of rows
     this.updateFontSize();
     
+    // Update SVG background color (this was missing!)
+    this.svg.stage.style['background-color'] = this.controlSettings.colBG.value;
+    
     // Clear existing text elements
     const existingTexts = this.svg.stage.querySelectorAll('text');
     existingTexts.forEach(text => text.remove());
@@ -1175,7 +1300,7 @@ class ArcSketch {
     const existingStyles = this.defs.querySelectorAll('style');
     existingStyles.forEach(style => style.remove());
     
-    // Recreate styles with updated font size
+    // Recreate styles with updated font size and colors
     this.createWidthStyles();
     
     // Regenerate arc text with new settings
@@ -1390,6 +1515,8 @@ class ArcSketch {
     this.controlSettings.noisePersistence.locked = document.getElementById('noisePersistence-lock')?.checked || false;
     this.controlSettings.noiseContrast.locked = document.getElementById('noiseContrast-lock')?.checked || false;
     this.controlSettings.noiseLacunarity.locked = document.getElementById('noiseLacunarity-lock')?.checked || false;
+    this.controlSettings.colBG.locked = document.getElementById('colBG-lock')?.checked || false;
+    this.controlSettings.colFG.locked = document.getElementById('colFG-lock')?.checked || false;
     
     // Return the lock states
     return {
@@ -1405,7 +1532,9 @@ class ArcSketch {
       noiseOctaves: this.controlSettings.noiseOctaves.locked,
       noisePersistence: this.controlSettings.noisePersistence.locked,
       noiseContrast: this.controlSettings.noiseContrast.locked,
-      noiseLacunarity: this.controlSettings.noiseLacunarity.locked
+      noiseLacunarity: this.controlSettings.noiseLacunarity.locked,
+      colBG: this.controlSettings.colBG.locked,
+      colFG: this.controlSettings.colFG.locked
     };
   }
 
@@ -1507,6 +1636,21 @@ class ArcSketch {
       noiseLacunaritySlider.value = this.controlSettings.noiseLacunarity.value;
       noiseLacunarityInput.value = this.controlSettings.noiseLacunarity.value;
     }
+
+    // Update color controls
+    const backgroundColorInput = document.getElementById('colBG-input');
+    const backgroundColorText = document.getElementById('colBG-text');
+    if (backgroundColorInput && backgroundColorText) {
+      backgroundColorInput.value = this.controlSettings.colBG.value;
+      backgroundColorText.value = this.controlSettings.colBG.value;
+    }
+
+    const foregroundColorInput = document.getElementById('colFG-input');
+    const foregroundColorText = document.getElementById('colFG-text');
+    if (foregroundColorInput && foregroundColorText) {
+      foregroundColorInput.value = this.controlSettings.colFG.value;
+      foregroundColorText.value = this.controlSettings.colFG.value;
+    }
     
     // Restore lock states - either from parameter or from internal state
     let lockStates = locks;
@@ -1526,7 +1670,9 @@ class ArcSketch {
         noiseOctaves: this.controlSettings.noiseOctaves.locked,
         noisePersistence: this.controlSettings.noisePersistence.locked,
         noiseContrast: this.controlSettings.noiseContrast.locked,
-        noiseLacunarity: this.controlSettings.noiseLacunarity.locked
+        noiseLacunarity: this.controlSettings.noiseLacunarity.locked,
+        colBG: this.controlSettings.colBG.locked,
+        colFG: this.controlSettings.colFG.locked
       };
     }
     
@@ -1545,6 +1691,8 @@ class ArcSketch {
       const noisePersistenceLock = document.getElementById('noisePersistence-lock');
       const noiseContrastLock = document.getElementById('noiseContrast-lock');
       const noiseLacunarityLock = document.getElementById('noiseLacunarity-lock');
+      const colBGLock = document.getElementById('colBG-lock');
+      const colFGLock = document.getElementById('colFG-lock');
       
       if (nRowsLock) nRowsLock.checked = lockStates.nRows || false;
       if (lineSpacingLock) lineSpacingLock.checked = lockStates.lineSpacing || false;
@@ -1559,6 +1707,8 @@ class ArcSketch {
       if (noisePersistenceLock) noisePersistenceLock.checked = lockStates.noisePersistence || false;
       if (noiseContrastLock) noiseContrastLock.checked = lockStates.noiseContrast || false;
       if (noiseLacunarityLock) noiseLacunarityLock.checked = lockStates.noiseLacunarity || false;
+      if (colBGLock) colBGLock.checked = lockStates.colBG || false;
+      if (colFGLock) colFGLock.checked = lockStates.colFG || false;
       
       // Update internal state to match
       this.controlSettings.nRows.locked = lockStates.nRows || false;
@@ -1574,6 +1724,8 @@ class ArcSketch {
       this.controlSettings.noisePersistence.locked = lockStates.noisePersistence || false;
       this.controlSettings.noiseContrast.locked = lockStates.noiseContrast || false;
       this.controlSettings.noiseLacunarity.locked = lockStates.noiseLacunarity || false;
+      this.controlSettings.colBG.locked = lockStates.colBG || false;
+      this.controlSettings.colFG.locked = lockStates.colFG || false;
     }
   }
 } 
