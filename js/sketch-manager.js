@@ -176,9 +176,26 @@ class SketchManager {
       
       // If we had preserved settings and the sketch can restore controls, let it handle that
       if (preservedSettings && this.currentSketch) {
-        // Restore settings
+        console.log('Restoring preserved settings...');
+        console.log('Preserved shiftTextPattern:', preservedSettings.shiftTextPattern);
+        
+        // Restore settings with deep merge to preserve structure like options arrays
         if (this.currentSketch.controlSettings) {
-          this.currentSketch.controlSettings = { ...this.currentSketch.controlSettings, ...preservedSettings };
+          Object.keys(preservedSettings).forEach(key => {
+            if (this.currentSketch.controlSettings[key]) {
+              // For shiftTextPattern, preserve the options array while restoring value and locked state
+              if (key === 'shiftTextPattern') {
+                this.currentSketch.controlSettings[key] = {
+                  ...this.currentSketch.controlSettings[key],
+                  ...preservedSettings[key],
+                  options: this.currentSketch.controlSettings[key].options || ['none', 'forward', 'backward', 'random']
+                };
+                console.log('Restored shiftTextPattern:', this.currentSketch.controlSettings[key]);
+              } else {
+                this.currentSketch.controlSettings[key] = { ...this.currentSketch.controlSettings[key], ...preservedSettings[key] };
+              }
+            }
+          });
         }
         
         // Let the sketch restore its own controls if it has this capability

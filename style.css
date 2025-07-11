@@ -150,4 +150,66 @@ rotorange
   padding: 0.5em;
   border-radius: 4px;
   z-index: 98;
+}
+
+/* Control styling classes */
+.control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.control-input-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.control-slider {
+  width: 150px;
+}
+
+.control-number {
+  width: 60px;
+}
+
+.control-select {
+  width: 150px;
+  padding: 0.5em;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  background-color: white;
+  font-size: 12px;
+}
+
+.control-checkbox {
+  margin: 0;
+}
+
+.control-lock-container {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 10px;
+}
+
+.control-lock-icon {
+  font-size: 0.9em;
+}
+
+.control-color-input {
+  width: 50px;
+  height: 30px;
+}
+
+.control-color-text {
+  width: 80px;
+  font-family: monospace;
+}
+
+.control-button-group {
+  display: flex;
+  gap: 10px;
 } 

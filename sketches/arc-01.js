@@ -382,15 +382,15 @@ class ArcSketch {
         
         switch (shiftMode) {
           case 'forward':
-            // Shift forward by row number (current behavior)
-            shiftAmount = row % txt.length;
+            // Shift forward by row number (adjusted for skipped first row)
+            shiftAmount = (row - 1) % txt.length;
             break;
           case 'backward':
-            // Shift backward by row number
-            shiftAmount = txt.length - (row % txt.length);
+            // Shift backward by row number (adjusted for skipped first row)
+            shiftAmount = txt.length - ((row - 1) % txt.length);
             break;
           case 'random':
-            // Use seeded random for consistent results
+            // Use seeded random for consistent results (adjusted for skipped first row)
             const rowSeed = this.seed ? this.seed.rnd() : Math.random();
             shiftAmount = Math.floor(rowSeed * txt.length);
             break;
@@ -437,11 +437,11 @@ class ArcSketch {
               
               // Use mapped position for consistent noise sampling
               noiseX = mappedCharIndex * this.controlSettings.noiseScale.value * frequency;
-              noiseY = row * this.controlSettings.noiseScale.value * frequency;
+              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency;
             } else {
               // Use character index directly (creates skewed pattern)
               noiseX = i * this.controlSettings.noiseScale.value * frequency;
-              noiseY = row * this.controlSettings.noiseScale.value * frequency;
+              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency;
             }
             noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
             
@@ -505,12 +505,14 @@ class ArcSketch {
     const nRowsRange = this.controlSettings.nRows;
     linesControl.innerHTML = `
       <label for="nRows-slider">Number of lines: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="nRows-slider" min="${nRowsRange.min}" max="${nRowsRange.max}" step="${nRowsRange.step}" value="${nRowsRange.value}" style="width: 150px;">
-        <input type="number" id="nRows-input" min="${nRowsRange.min}" max="${nRowsRange.max}" step="${nRowsRange.step}" value="${nRowsRange.value}" style="width: 60px;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="nRows-lock" ${nRowsRange.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="nRows-slider" min="${nRowsRange.min}" max="${nRowsRange.max}" step="${nRowsRange.step}" value="${nRowsRange.value}" class="control-slider">
+          <input type="number" id="nRows-input" min="${nRowsRange.min}" max="${nRowsRange.max}" step="${nRowsRange.step}" value="${nRowsRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="nRows-lock" ${nRowsRange.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -525,6 +527,7 @@ class ArcSketch {
       input.value = e.target.value;
       this.controlSettings.nRows.value = parseInt(e.target.value);
       this.updateSketch();
+      this.saveSettings(); // Auto-save when value changes
     });
     
     input.addEventListener('input', (e) => {
@@ -543,12 +546,14 @@ class ArcSketch {
     const lineSpacingRange = this.controlSettings.lineSpacing;
     lineSpacingControl.innerHTML = `
       <label for="lineSpacing-slider">Line spacing (font size): </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="lineSpacing-slider" min="${lineSpacingRange.min}" max="${lineSpacingRange.max}" step="${lineSpacingRange.step}" value="${lineSpacingRange.value}" style="width: 150px;">
-        <input type="number" id="lineSpacing-input" min="${lineSpacingRange.min}" max="${lineSpacingRange.max}" step="${lineSpacingRange.step}" value="${lineSpacingRange.value}" style="width: 60px;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="lineSpacing-lock" ${lineSpacingRange.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="lineSpacing-slider" min="${lineSpacingRange.min}" max="${lineSpacingRange.max}" step="${lineSpacingRange.step}" value="${lineSpacingRange.value}" class="control-slider">
+          <input type="number" id="lineSpacing-input" min="${lineSpacingRange.min}" max="${lineSpacingRange.max}" step="${lineSpacingRange.step}" value="${lineSpacingRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="lineSpacing-lock" ${lineSpacingRange.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -562,6 +567,7 @@ class ArcSketch {
       lineSpacingInput.value = e.target.value;
       this.controlSettings.lineSpacing.value = parseFloat(e.target.value);
       this.updateSketch();
+      this.saveSettings(); // Auto-save when value changes
     });
     
     lineSpacingInput.addEventListener('input', (e) => {
@@ -584,19 +590,23 @@ class ArcSketch {
     }
     
     textPatternShiftControl.innerHTML = `
-      <label for="shiftTextPattern-select">Shift text pattern per row: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <select id="shiftTextPattern-select" style="width: 150px;">
-          ${this.controlSettings.shiftTextPattern.options.map(option => 
-            `<option value="${option}" ${option === this.controlSettings.shiftTextPattern.value ? 'selected' : ''}>${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
-          ).join('')}
-        </select>
-        <label style="display: flex; align-items: center; gap: 5px;">
-          <input type="checkbox" id="shiftTextPattern-lock" ${this.controlSettings.shiftTextPattern.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <label for="shiftTextPattern-select">Shift text pattern:</label>
+          <select id="shiftTextPattern-select" class="control-select">
+            ${this.controlSettings.shiftTextPattern.options.map(option => 
+              `<option value="${option}" ${option === this.controlSettings.shiftTextPattern.value ? 'selected' : ''}>${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="shiftTextPattern-lock" ${this.controlSettings.shiftTextPattern.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
+    
+    console.log('Creating shiftTextPattern dropdown with value:', this.controlSettings.shiftTextPattern.value);
     values.append(textPatternShiftControl);
 
     const textPatternShiftSelect = textPatternShiftControl.querySelector('#shiftTextPattern-select');
@@ -605,22 +615,26 @@ class ArcSketch {
     textPatternShiftSelect.addEventListener('change', (e) => {
       this.controlSettings.shiftTextPattern.value = e.target.value;
       this.updateSketch();
+      this.saveSettings(); // Auto-save when value changes
     });
 
     // Sync lock state with internal state
     textPatternShiftLock.addEventListener('change', (e) => {
       this.controlSettings.shiftTextPattern.locked = e.target.checked;
+      this.saveSettings(); // Auto-save when lock state changes
     });
 
     // Use blanks control
     const useBlanksControl = document.createElement('li');
     useBlanksControl.innerHTML = `
-      <label for="useBlanks-checkbox">Use transparent letters: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="checkbox" id="useBlanks-checkbox" ${this.controlSettings.useBlanks.value ? 'checked' : ''}>
-        <label style="display: flex; align-items: center; gap: 5px;">
-          <input type="checkbox" id="useBlanks-lock" ${this.controlSettings.useBlanks.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <label for="useBlanks-checkbox">Use blanks: </label>
+          <input type="checkbox" id="useBlanks-checkbox" ${this.controlSettings.useBlanks.value ? 'checked' : ''}>
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="useBlanks-lock" ${this.controlSettings.useBlanks.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -632,6 +646,7 @@ class ArcSketch {
     useBlanksCheckbox.addEventListener('change', (e) => {
       this.controlSettings.useBlanks.value = e.target.checked;
       this.updateSketch();
+      this.saveSettings(); // Auto-save when value changes
     });
 
     // Sync lock state with internal state
@@ -643,13 +658,15 @@ class ArcSketch {
     const blanksProbControl = document.createElement('li');
     const blanksProbRange = this.controlSettings.blanksProb;
     blanksProbControl.innerHTML = `
-      <label for="blanksProb-slider">Transparent letters probability (%): </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="blanksProb-slider" min="${blanksProbRange.min}" max="${blanksProbRange.max}" step="${blanksProbRange.step}" value="${blanksProbRange.value}" style="width: 150px;">
-        <input type="number" id="blanksProb-input" min="${blanksProbRange.min}" max="${blanksProbRange.max}" step="${blanksProbRange.step}" value="${blanksProbRange.value}" style="width: 60px;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="blanksProb-lock" ${blanksProbRange.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <label for="blanksProb-slider">Blanks probability (%): </label>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="blanksProb-slider" min="${blanksProbRange.min}" max="${blanksProbRange.max}" step="${blanksProbRange.step}" value="${blanksProbRange.value}" class="control-slider">
+          <input type="number" id="blanksProb-input" min="${blanksProbRange.min}" max="${blanksProbRange.max}" step="${blanksProbRange.step}" value="${blanksProbRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="blanksProb-lock" ${blanksProbRange.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -679,12 +696,14 @@ class ArcSketch {
     // Noise toggle control
     const noiseToggleControl = document.createElement('li');
     noiseToggleControl.innerHTML = `
-      <label for="useNoise-checkbox">Use noise: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="checkbox" id="useNoise-checkbox" ${this.controlSettings.useNoise.value ? 'checked' : ''}>
-        <label style="display: flex; align-items: center; gap: 5px;">
-          <input type="checkbox" id="useNoise-lock" ${this.controlSettings.useNoise.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <label for="useNoise-checkbox">Use noise: </label>
+          <input type="checkbox" id="useNoise-checkbox" ${this.controlSettings.useNoise.value ? 'checked' : ''}>
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="useNoise-lock" ${this.controlSettings.useNoise.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -701,6 +720,7 @@ class ArcSketch {
         this.noise = new SimplexNoise(noiseSeed);
       }
       this.updateSketch();
+      this.saveSettings(); // Auto-save when value changes
     });
 
     // Sync lock state with internal state
@@ -711,12 +731,14 @@ class ArcSketch {
     // Normalize noise control
     const normalizeNoiseControl = document.createElement('li');
     normalizeNoiseControl.innerHTML = `
-      <label for="normalizeNoise-checkbox">Normalize noise across rows: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="checkbox" id="normalizeNoise-checkbox" ${this.controlSettings.normalizeNoise.value ? 'checked' : ''}>
-        <label style="display: flex; align-items: center; gap: 5px;">
-          <input type="checkbox" id="normalizeNoise-lock" ${this.controlSettings.normalizeNoise.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <label for="normalizeNoise-checkbox">Normalize noise across rows: </label>
+          <input type="checkbox" id="normalizeNoise-checkbox" ${this.controlSettings.normalizeNoise.value ? 'checked' : ''}>
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="normalizeNoise-lock" ${this.controlSettings.normalizeNoise.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -738,12 +760,14 @@ class ArcSketch {
     // Inverse width mapping control
     const inverseWidthMappingControl = document.createElement('li');
     inverseWidthMappingControl.innerHTML = `
-      <label for="inverseWidthMapping-checkbox">Inverse width mapping: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="checkbox" id="inverseWidthMapping-checkbox" ${this.controlSettings.inverseWidthMapping.value ? 'checked' : ''}>
-        <label style="display: flex; align-items: center; gap: 5px;">
-          <input type="checkbox" id="inverseWidthMapping-lock" ${this.controlSettings.inverseWidthMapping.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <label for="inverseWidthMapping-checkbox">Inverse width mapping: </label>
+          <input type="checkbox" id="inverseWidthMapping-checkbox" ${this.controlSettings.inverseWidthMapping.value ? 'checked' : ''}>
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="inverseWidthMapping-lock" ${this.controlSettings.inverseWidthMapping.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -767,12 +791,14 @@ class ArcSketch {
     const noiseScaleRange = this.controlSettings.noiseScale;
     noiseScaleControl.innerHTML = `
       <label for="noiseScale-slider">Noise scale: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="noiseScale-slider" min="${noiseScaleRange.min}" max="${noiseScaleRange.max}" step="${noiseScaleRange.step}" value="${noiseScaleRange.value}" style="width: 150px;">
-        <input type="number" id="noiseScale-input" min="${noiseScaleRange.min}" max="${noiseScaleRange.max}" step="${noiseScaleRange.step}" value="${noiseScaleRange.value}" style="width: 60px;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="noiseScale-lock" ${noiseScaleRange.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="noiseScale-slider" min="${noiseScaleRange.min}" max="${noiseScaleRange.max}" step="${noiseScaleRange.step}" value="${noiseScaleRange.value}" class="control-slider">
+          <input type="number" id="noiseScale-input" min="${noiseScaleRange.min}" max="${noiseScaleRange.max}" step="${noiseScaleRange.step}" value="${noiseScaleRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="noiseScale-lock" ${noiseScaleRange.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -804,12 +830,14 @@ class ArcSketch {
     const noiseOctavesRange = this.controlSettings.noiseOctaves;
     noiseOctavesControl.innerHTML = `
       <label for="noiseOctaves-slider">Noise octaves: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="noiseOctaves-slider" min="${noiseOctavesRange.min}" max="${noiseOctavesRange.max}" step="${noiseOctavesRange.step}" value="${noiseOctavesRange.value}" style="width: 150px;">
-        <input type="number" id="noiseOctaves-input" min="${noiseOctavesRange.min}" max="${noiseOctavesRange.max}" step="${noiseOctavesRange.step}" value="${noiseOctavesRange.value}" style="width: 60px;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="noiseOctaves-lock" ${noiseOctavesRange.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="noiseOctaves-slider" min="${noiseOctavesRange.min}" max="${noiseOctavesRange.max}" step="${noiseOctavesRange.step}" value="${noiseOctavesRange.value}" class="control-slider">
+          <input type="number" id="noiseOctaves-input" min="${noiseOctavesRange.min}" max="${noiseOctavesRange.max}" step="${noiseOctavesRange.step}" value="${noiseOctavesRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="noiseOctaves-lock" ${noiseOctavesRange.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -841,12 +869,14 @@ class ArcSketch {
     const noisePersistenceRange = this.controlSettings.noisePersistence;
     noisePersistenceControl.innerHTML = `
       <label for="noisePersistence-slider">Noise persistence: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="noisePersistence-slider" min="${noisePersistenceRange.min}" max="${noisePersistenceRange.max}" step="${noisePersistenceRange.step}" value="${noisePersistenceRange.value}" style="width: 150px;">
-        <input type="number" id="noisePersistence-input" min="${noisePersistenceRange.min}" max="${noisePersistenceRange.max}" step="${noisePersistenceRange.step}" value="${noisePersistenceRange.value}" style="width: 60px;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="noisePersistence-lock" ${noisePersistenceRange.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="noisePersistence-slider" min="${noisePersistenceRange.min}" max="${noisePersistenceRange.max}" step="${noisePersistenceRange.step}" value="${noisePersistenceRange.value}" class="control-slider">
+          <input type="number" id="noisePersistence-input" min="${noisePersistenceRange.min}" max="${noisePersistenceRange.max}" step="${noisePersistenceRange.step}" value="${noisePersistenceRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="noisePersistence-lock" ${noisePersistenceRange.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -878,12 +908,14 @@ class ArcSketch {
     const noiseContrastRange = this.controlSettings.noiseContrast;
     noiseContrastControl.innerHTML = `
       <label for="noiseContrast-slider">Noise contrast: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="noiseContrast-slider" min="${noiseContrastRange.min}" max="${noiseContrastRange.max}" step="${noiseContrastRange.step}" value="${noiseContrastRange.value}" style="width: 150px;">
-        <input type="number" id="noiseContrast-input" min="${noiseContrastRange.min}" max="${noiseContrastRange.max}" step="${noiseContrastRange.step}" value="${noiseContrastRange.value}" style="width: 60px;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="noiseContrast-lock" ${noiseContrastRange.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="noiseContrast-slider" min="${noiseContrastRange.min}" max="${noiseContrastRange.max}" step="${noiseContrastRange.step}" value="${noiseContrastRange.value}" class="control-slider">
+          <input type="number" id="noiseContrast-input" min="${noiseContrastRange.min}" max="${noiseContrastRange.max}" step="${noiseContrastRange.step}" value="${noiseContrastRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="noiseContrast-lock" ${noiseContrastRange.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -915,12 +947,14 @@ class ArcSketch {
     const noiseLacunarityRange = this.controlSettings.noiseLacunarity;
     noiseLacunarityControl.innerHTML = `
       <label for="noiseLacunarity-slider">Noise lacunarity: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="range" id="noiseLacunarity-slider" min="${noiseLacunarityRange.min}" max="${noiseLacunarityRange.max}" step="${noiseLacunarityRange.step}" value="${noiseLacunarityRange.value}" style="width: 150px;">
-        <input type="number" id="noiseLacunarity-input" min="${noiseLacunarityRange.min}" max="${noiseLacunarityRange.max}" step="${noiseLacunarityRange.step}" value="${noiseLacunarityRange.value}" style="width: 60px;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="noiseLacunarity-lock" ${noiseLacunarityRange.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="noiseLacunarity-slider" min="${noiseLacunarityRange.min}" max="${noiseLacunarityRange.max}" step="${noiseLacunarityRange.step}" value="${noiseLacunarityRange.value}" class="control-slider">
+          <input type="number" id="noiseLacunarity-input" min="${noiseLacunarityRange.min}" max="${noiseLacunarityRange.max}" step="${noiseLacunarityRange.step}" value="${noiseLacunarityRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="noiseLacunarity-lock" ${noiseLacunarityRange.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -953,12 +987,14 @@ class ArcSketch {
     const backgroundColorControl = document.createElement('li');
     backgroundColorControl.innerHTML = `
       <label for="colBG-input">Background color: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="color" id="colBG-input" value="${this.controlSettings.colBG.value}" style="width: 50px; height: 30px;">
-        <input type="text" id="colBG-text" value="${this.controlSettings.colBG.value}" style="width: 80px; font-family: monospace;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="colBG-lock" ${this.controlSettings.colBG.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="color" id="colBG-input" value="${this.controlSettings.colBG.value}" class="control-color-input">
+          <input type="text" id="colBG-text" value="${this.controlSettings.colBG.value}" class="control-color-text">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="colBG-lock" ${this.controlSettings.colBG.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -972,12 +1008,14 @@ class ArcSketch {
       backgroundColorText.value = e.target.value;
       this.controlSettings.colBG.value = e.target.value;
       this.updateSketch();
+      this.saveSettings(); // Auto-save when value changes
     });
     
     backgroundColorText.addEventListener('input', (e) => {
       backgroundColorInput.value = e.target.value;
       this.controlSettings.colBG.value = e.target.value;
       this.updateSketch();
+      this.saveSettings(); // Auto-save when value changes
     });
 
     // Sync lock state with internal state
@@ -989,12 +1027,14 @@ class ArcSketch {
     const foregroundColorControl = document.createElement('li');
     foregroundColorControl.innerHTML = `
       <label for="colFG-input">Text color: </label>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <input type="color" id="colFG-input" value="${this.controlSettings.colFG.value}" style="width: 50px; height: 30px;">
-        <input type="text" id="colFG-text" value="${this.controlSettings.colFG.value}" style="width: 80px; font-family: monospace;">
-        <label style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
-          <input type="checkbox" id="colFG-lock" ${this.controlSettings.colFG.locked ? 'checked' : ''} style="margin: 0;">
-          <span style="font-size: 0.9em;">🔒</span>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="color" id="colFG-input" value="${this.controlSettings.colFG.value}" class="control-color-input">
+          <input type="text" id="colFG-text" value="${this.controlSettings.colFG.value}" class="control-color-text">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="colFG-lock" ${this.controlSettings.colFG.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
@@ -1008,12 +1048,14 @@ class ArcSketch {
       foregroundColorText.value = e.target.value;
       this.controlSettings.colFG.value = e.target.value;
       this.updateSketch();
+      this.saveSettings(); // Auto-save when value changes
     });
     
     foregroundColorText.addEventListener('input', (e) => {
       foregroundColorInput.value = e.target.value;
       this.controlSettings.colFG.value = e.target.value;
       this.updateSketch();
+      this.saveSettings(); // Auto-save when value changes
     });
 
     // Sync lock state with internal state
@@ -1222,40 +1264,17 @@ class ArcSketch {
       }, 1000);
     });
 
-    // Save/Load controls
-    const saveLoadControl = document.createElement('li');
-    saveLoadControl.innerHTML = `
-      <div style="display: flex; gap: 10px;">
-        <button id="save-settings-btn" class="btn secondary">Save Settings</button>
-        <button id="load-settings-btn" class="btn secondary">Load Settings</button>
+    // Load from SVG control
+    const loadFromSvgControl = document.createElement('li');
+    loadFromSvgControl.innerHTML = `
+      <div class="control-button-group">
         <button id="load-from-svg-btn" class="btn secondary">Load from SVG</button>
       </div>
     `;
-    values.append(saveLoadControl);
+    values.append(loadFromSvgControl);
 
-    const saveBtn = saveLoadControl.querySelector('#save-settings-btn');
-    const loadBtn = saveLoadControl.querySelector('#load-settings-btn');
-    const loadFromSvgBtn = saveLoadControl.querySelector('#load-from-svg-btn');
+    const loadFromSvgBtn = loadFromSvgControl.querySelector('#load-from-svg-btn');
     
-    saveBtn.addEventListener('click', () => {
-      this.saveSettings();
-      // Show feedback
-      saveBtn.textContent = 'Saved!';
-      setTimeout(() => {
-        saveBtn.textContent = 'Save Settings';
-      }, 1000);
-    });
-    
-    loadBtn.addEventListener('click', () => {
-      this.loadSettings();
-      this.updateSketch();
-      // Show feedback
-      loadBtn.textContent = 'Loaded!';
-      setTimeout(() => {
-        loadBtn.textContent = 'Load Settings';
-      }, 1000);
-    });
-
     loadFromSvgBtn.addEventListener('click', () => {
       this.loadSettingsFromFile();
     });
@@ -1330,6 +1349,7 @@ class ArcSketch {
       };
       localStorage.setItem('arcSketchSettings', JSON.stringify(settingsData));
       console.log('Settings saved successfully');
+      console.log('Saved shiftTextPattern:', this.controlSettings.shiftTextPattern);
     } catch (e) {
       console.error('Failed to save settings:', e);
     }
@@ -1388,6 +1408,7 @@ class ArcSketch {
         }
         
         console.log('Settings loaded successfully');
+        console.log('Loaded shiftTextPattern:', this.controlSettings.shiftTextPattern);
       }
     } catch (e) {
       console.error('Failed to load settings:', e);
