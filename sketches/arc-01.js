@@ -188,7 +188,13 @@ class ArcSketch {
       nCols: 20,
       leftAngle: 24,
       rightAngle: 24,
-      txt: 'LLAL'
+      txt: 'LLAL',
+      guides: {
+        show: true,
+        color: '#0f0',
+        width: 1,
+        opacity: 1
+      }
     };
 
     // Load saved settings if available
@@ -295,8 +301,9 @@ class ArcSketch {
     const path = document.createElementNS(this.svg.ns, 'path');
     path.setAttribute('d', this.arcPath(cx, cy, r, startAngle, endAngle, sweepFlag));
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', '#f00');
-    path.setAttribute('stroke-width', 5);
+    path.setAttribute('stroke', this.staticSettings.guides.color);
+    path.setAttribute('stroke-width', this.staticSettings.guides.width);
+    path.setAttribute('stroke-opacity', this.staticSettings.guides.opacity);
     
     if (this.drawControlPoints) {
       const start = {
@@ -313,6 +320,53 @@ class ArcSketch {
     this.svg.stage.append(path);
   }
 
+  drawConeConnectors(cx, cy, rOuter, rInner, startAngle, endAngle) {
+    // Calculate the endpoints of the inner and outer arcs
+    const outerStart = {
+      x: cx + rOuter * Math.cos(rad(startAngle)),
+      y: cy + rOuter * Math.sin(rad(startAngle))
+    };
+    const outerEnd = {
+      x: cx + rOuter * Math.cos(rad(endAngle)),
+      y: cy + rOuter * Math.sin(rad(endAngle))
+    };
+    const innerStart = {
+      x: cx + rInner * Math.cos(rad(startAngle)),
+      y: cy + rInner * Math.sin(rad(startAngle))
+    };
+    const innerEnd = {
+      x: cx + rInner * Math.cos(rad(endAngle)),
+      y: cy + rInner * Math.sin(rad(endAngle))
+    };
+
+    // Draw connecting lines to complete the cone shape
+    this.drawLine(outerStart, innerStart);
+    this.drawLine(outerEnd, innerEnd);
+  }
+
+  makeGuides(cx, cy, rOuter, rInner, arcStart, arcEnd) {
+    if (this.staticSettings.guides.show) {
+      // Draw reference cone outline
+      this.makeArc(cx, cy, rOuter, arcStart, arcEnd);
+      this.makeArc(cx, cy, rInner, arcStart, arcEnd);
+      
+      // Connect the arc endpoints to complete the cone shape
+      this.drawConeConnectors(cx, cy, rOuter, rInner, arcStart, arcEnd);
+    }
+  }
+
+  drawLine(start, end) {
+    const line = document.createElementNS(this.svg.ns, 'line');
+    line.setAttribute('x1', start.x);
+    line.setAttribute('y1', start.y);
+    line.setAttribute('x2', end.x);
+    line.setAttribute('y2', end.y);
+    line.setAttribute('stroke', this.staticSettings.guides.color);
+    line.setAttribute('stroke-width', this.staticSettings.guides.width);
+    line.setAttribute('stroke-opacity', this.staticSettings.guides.opacity);
+    this.svg.stage.append(line);
+  }
+
   createArcText() {
     const rOuter = 376 * this.mmToPx;
     const rInner = 100 * this.mmToPx;
@@ -322,13 +376,10 @@ class ArcSketch {
     const arcStart = 90 + this.staticSettings.leftAngle;   // bottom-right of circle
     const arcEnd = 90 - this.staticSettings.rightAngle;      // bottom-left of circle
 
-    this.drawControlPoints = true;
+    this.drawControlPoints = false; // Turn off control points for cleaner look
 
-    // Draw reference circle
-    // this.svg.makeCircle({ x: cx, y: cy }, rOuter, 'none', '#0f0');
-
-    // this.makeArc(cx, cy, rOuter, arcStart, arcEnd);
-    // this.makeArc(cx, cy, rInner, arcStart, arcEnd);
+    // Draw reference cone outline (if enabled)
+    this.makeGuides(cx, cy, rOuter, rInner, arcStart, arcEnd);
 
     // Generate multiple lines of text along the arcs
     this.createArcTextLines(cx, cy, rOuter, rInner, arcStart, arcEnd);
@@ -1313,24 +1364,23 @@ class ArcSketch {
     const existingTexts = this.svg.stage.querySelectorAll('text');
     existingTexts.forEach(text => text.remove());
     
-    // Clear existing arc paths and styles from defs
-    const existingPaths = this.defs.querySelectorAll('[id^="arc-path-"]');
+    // Clear existing reference lines and arcs
+    const existingPaths = this.svg.stage.querySelectorAll('path');
     existingPaths.forEach(path => path.remove());
+    const existingLines = this.svg.stage.querySelectorAll('line');
+    existingLines.forEach(line => line.remove());
+    
+    // Clear existing arc paths and styles from defs
+    const existingDefPaths = this.defs.querySelectorAll('[id^="arc-path-"]');
+    existingDefPaths.forEach(path => path.remove());
     const existingStyles = this.defs.querySelectorAll('style');
     existingStyles.forEach(style => style.remove());
     
     // Recreate styles with updated font size and colors
     this.createWidthStyles();
     
-    // Regenerate arc text with new settings
-    const rOuter = 376 * this.mmToPx;
-    const rInner = 100 * this.mmToPx;
-    const cx = this.svg.w / 2;
-    const cy = this.svg.h - rOuter;
-    const arcStart = 90 + this.staticSettings.leftAngle;
-    const arcEnd = 90 - this.staticSettings.rightAngle;
-    
-    this.createArcTextLines(cx, cy, rOuter, rInner, arcStart, arcEnd);
+    // Regenerate arc text with new settings (this will also redraw the cone outline)
+    this.createArcText();
   }
 
   cleanup() {
