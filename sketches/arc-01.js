@@ -1630,7 +1630,8 @@ class ArcSketch {
       
       const settingsData = {
         controlSettings: valuesToSave,
-        staticSettings: this.staticSettings
+        staticSettings: this.staticSettings,
+        seed: this.seed ? this.seed.hash : null
       };
       svgElement.setAttribute('data-sketch-settings', JSON.stringify(settingsData));
     }
@@ -1705,6 +1706,17 @@ class ArcSketch {
                 });
               }
               
+              // Restore seed if available
+              if (settingsData.seed && settingsData.seed !== null) {
+                this.seed.hash = settingsData.seed;
+                // Regenerate the random number generator with the restored seed
+                this.seed.hashTrunc = this.seed.hash.slice(2);
+                this.seed.regex = new RegExp('.{' + ((this.seed.hashTrunc.length / 4) | 0) + '}', 'g');
+                this.seed.hashes = this.seed.hashTrunc.match(this.seed.regex).map((h) => this.seed.b58dec(h));
+                this.seed.rnd = this.seed.sfc32(...this.seed.hashes);
+                console.log('Seed restored from SVG:', this.seed.hash);
+              }
+              
               // Reinitialize noise if needed
               if (this.controlSettings.useNoise.value) {
                 const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
@@ -1712,7 +1724,8 @@ class ArcSketch {
               }
               
               this.updateSketch();
-              console.log('Settings loaded from SVG file (values and locks only, preserved ranges)');
+              this.updateHashDisplay(); // Update the displayed hash
+              console.log('Settings and seed loaded from SVG file (values and locks only, preserved ranges)');
             } else {
               console.log('No settings found in SVG file');
             }
