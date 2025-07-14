@@ -139,24 +139,24 @@ class ArcSketch {
       },
       angularNoise: {
         default: false,
-        value: true,
+        value: false,
         locked: true
       },
       angularResolution: {
         min: 0.05,
         max: 0.9,
         step: 0.05,
-        default: 0.3,
-        value: 0.3,
+        default: 0.6,
+        value: 0.6,
         locked: true
       },
       yScaleFactor: {
         min: 0.1,
         max: 30.0,
         step: 0.1,
-        default: 1.5,
-        value: 1.5,
-        locked: false
+        default: 0.8,
+        value: 0.8,
+        locked: true
       },
       inverseWidthMapping: {
         default: false,
