@@ -1723,6 +1723,9 @@ class ArcSketch {
                 this.noise = new SimplexNoise(noiseSeed);
               }
               
+              // Update UI controls to reflect loaded values
+              this.restoreControlsFromSettings();
+              
               this.updateSketch();
               this.updateHashDisplay(); // Update the displayed hash
               console.log('Settings and seed loaded from SVG file (values and locks only, preserved ranges)');
