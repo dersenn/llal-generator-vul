@@ -212,4 +212,18 @@ rotorange
 .control-button-group {
   display: flex;
   gap: 10px;
+}
+
+/* Lock-all control styling */
+.lock-all-control {
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 8px 0;
+}
+
+.lock-all-control label {
+  font-weight: bold;
+  color: #333;
 } 

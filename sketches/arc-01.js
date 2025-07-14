@@ -624,6 +624,7 @@ class ArcSketch {
     // Sync lock state with internal state
     nRowsLock.addEventListener('change', (e) => {
       this.controlSettings.nRows.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Line spacing control (affects font size)
@@ -664,6 +665,7 @@ class ArcSketch {
     // Sync lock state with internal state
     lineSpacingLock.addEventListener('change', (e) => {
       this.controlSettings.lineSpacing.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Text pattern shifting control
@@ -707,9 +709,32 @@ class ArcSketch {
     textPatternShiftLock.addEventListener('change', (e) => {
       this.controlSettings.shiftTextPattern.locked = e.target.checked;
       if (!this.isInitializing) this.saveSettings(); // Auto-save when lock state changes
+      this.updateLockAllCheckbox();
     });
 
+    // Lock/Unlock All control
+    const lockAllControl = document.createElement('li');
+    lockAllControl.innerHTML = `
+      <div class="control-row lock-all-control">
+        <div class="control-input-group">
+          <label for="lockAll-checkbox">Lock all controls: </label>
+          <input type="checkbox" id="lockAll-checkbox" class="control-checkbox">
+        </div>
+      </div>
+    `;
+    values.append(lockAllControl);
 
+    const lockAllCheckbox = lockAllControl.querySelector('#lockAll-checkbox');
+    
+    lockAllCheckbox.addEventListener('change', (e) => {
+      const shouldLockAll = e.target.checked;
+      this.setAllLockStates(shouldLockAll);
+      this.updateAllLockCheckboxes();
+      if (!this.isInitializing) this.saveSettings(); // Auto-save when lock states change
+    });
+
+    // Store reference for later updates
+    this.lockAllCheckbox = lockAllCheckbox;
 
     // Noise toggle control
     const noiseToggleControl = document.createElement('li');
@@ -743,6 +768,7 @@ class ArcSketch {
     // Sync lock state with internal state
     useNoiseLock.addEventListener('change', (e) => {
       this.controlSettings.useNoise.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Angular noise control
@@ -772,6 +798,7 @@ class ArcSketch {
     // Sync lock state with internal state
     angularNoiseLock.addEventListener('change', (e) => {
       this.controlSettings.angularNoise.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Angular resolution control
@@ -811,6 +838,7 @@ class ArcSketch {
     // Sync lock state with internal state
     angularResolutionLock.addEventListener('change', (e) => {
       this.controlSettings.angularResolution.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Y-axis scale factor control
@@ -850,6 +878,7 @@ class ArcSketch {
     // Sync lock state with internal state
     yScaleFactorLock.addEventListener('change', (e) => {
       this.controlSettings.yScaleFactor.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Inverse width mapping control
@@ -879,6 +908,7 @@ class ArcSketch {
     // Sync lock state with internal state
     inverseWidthMappingLock.addEventListener('change', (e) => {
       this.controlSettings.inverseWidthMapping.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Noise scale control
@@ -918,6 +948,7 @@ class ArcSketch {
     // Sync lock state with internal state
     noiseScaleLock.addEventListener('change', (e) => {
       this.controlSettings.noiseScale.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Noise octaves control
@@ -957,6 +988,7 @@ class ArcSketch {
     // Sync lock state with internal state
     noiseOctavesLock.addEventListener('change', (e) => {
       this.controlSettings.noiseOctaves.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Noise persistence control
@@ -996,6 +1028,7 @@ class ArcSketch {
     // Sync lock state with internal state
     noisePersistenceLock.addEventListener('change', (e) => {
       this.controlSettings.noisePersistence.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Noise contrast control
@@ -1035,6 +1068,7 @@ class ArcSketch {
     // Sync lock state with internal state
     noiseContrastLock.addEventListener('change', (e) => {
       this.controlSettings.noiseContrast.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
           // Noise lacunarity control
@@ -1074,6 +1108,7 @@ class ArcSketch {
     // Sync lock state with internal state
     noiseLacunarityLock.addEventListener('change', (e) => {
       this.controlSettings.noiseLacunarity.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Color controls
@@ -1116,6 +1151,7 @@ class ArcSketch {
     // Sync lock state with internal state
     backgroundColorLock.addEventListener('change', (e) => {
       this.controlSettings.colBG.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Foreground color control
@@ -1156,6 +1192,7 @@ class ArcSketch {
     // Sync lock state with internal state
     foregroundColorLock.addEventListener('change', (e) => {
       this.controlSettings.colFG.locked = e.target.checked;
+      this.updateLockAllCheckbox();
     });
 
     // Settings randomizer control
@@ -1400,6 +1437,9 @@ class ArcSketch {
     this.controlsContainer.append(values);
 
     reloadBtn.addEventListener('click', () => this.newSketch());
+    
+    // Initialize the lock-all checkbox state
+    this.updateLockAllCheckbox();
   }
 
   updateHashDisplay() {
@@ -1917,5 +1957,80 @@ class ArcSketch {
       this.controlSettings.colBG.locked = lockStates.colBG || false;
       this.controlSettings.colFG.locked = lockStates.colFG || false;
     }
+    
+    // Update the lock-all checkbox to reflect the current state
+    this.updateLockAllCheckbox();
+  }
+
+  setAllLockStates(shouldLock) {
+    // Set all lock states to the specified value
+    Object.keys(this.controlSettings).forEach(key => {
+      this.controlSettings[key].locked = shouldLock;
+    });
+  }
+
+  updateAllLockCheckboxes() {
+    // Update all lock checkboxes in the UI to match the current lock states
+    const lockIds = [
+      'nRows-lock',
+      'lineSpacing-lock',
+      'shiftTextPattern-lock',
+      'useNoise-lock',
+      'angularNoise-lock',
+      'angularResolution-lock',
+      'yScaleFactor-lock',
+      'inverseWidthMapping-lock',
+      'noiseScale-lock',
+      'noiseOctaves-lock',
+      'noisePersistence-lock',
+      'noiseContrast-lock',
+      'noiseLacunarity-lock',
+      'colBG-lock',
+      'colFG-lock'
+    ];
+
+    const controlKeys = [
+      'nRows',
+      'lineSpacing',
+      'shiftTextPattern',
+      'useNoise',
+      'angularNoise',
+      'angularResolution',
+      'yScaleFactor',
+      'inverseWidthMapping',
+      'noiseScale',
+      'noiseOctaves',
+      'noisePersistence',
+      'noiseContrast',
+      'noiseLacunarity',
+      'colBG',
+      'colFG'
+    ];
+
+    lockIds.forEach((lockId, index) => {
+      const lockCheckbox = document.getElementById(lockId);
+      if (lockCheckbox) {
+        lockCheckbox.checked = this.controlSettings[controlKeys[index]].locked;
+      }
+    });
+  }
+
+  updateLockAllCheckbox() {
+    // Update the lock-all checkbox based on the current state of all individual locks
+    if (!this.lockAllCheckbox) return;
+
+    const allLocked = Object.keys(this.controlSettings).every(key => 
+      this.controlSettings[key].locked
+    );
+
+    const someLocked = Object.keys(this.controlSettings).some(key => 
+      this.controlSettings[key].locked
+    );
+
+    // Set the checkbox state
+    this.lockAllCheckbox.checked = allLocked;
+    
+    // Set indeterminate state if some but not all are locked
+    this.lockAllCheckbox.indeterminate = someLocked && !allLocked;
   }
 } 
