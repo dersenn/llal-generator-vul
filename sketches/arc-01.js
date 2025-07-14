@@ -91,10 +91,10 @@ class ArcSketch {
       // Layout controls
       nRows: {
         min: 30,
-        max: 180,
+        max: 240,
         step: 1,
-        default: 60,
-        value: 60,
+        default: 120,
+        value: 120,
         locked: true
       },
       lineSpacing: {
@@ -109,8 +109,8 @@ class ArcSketch {
       // Text controls
       shiftTextPattern: {
         options: ['none', 'forward', 'backward', 'random'],
-        default: 'none',
-        value: 'none',
+        default: 'forward',
+        value: 'forward',
         locked: true
       },
       useBlanks: {
@@ -133,10 +133,18 @@ class ArcSketch {
         value: true,
         locked: true
       },
-      normalizeNoise: {
-        default: true,
+      angularNoise: {
+        default: false,
         value: true,
         locked: true
+      },
+      angularResolution: {
+        min: 0.05,
+        max: 0.9,
+        step: 0.05,
+        default: 0.3,
+        value: 0.3,
+        locked: false
       },
       inverseWidthMapping: {
         default: false,
@@ -176,11 +184,11 @@ class ArcSketch {
         locked: false
       },
       noiseLacunarity: {
-        min: 1.0,
-        max: 4.0,
+        min: 0.5,
+        max: 3.0,
         step: 0.1,
-        default: 2.0,
-        value: 2.0,
+        default: 1.5,
+        value: 1.5,
         locked: false
       },
       
@@ -475,19 +483,20 @@ class ArcSketch {
           
           for (let octave = 0; octave < this.controlSettings.noiseOctaves.value; octave++) {
             let noiseX, noiseY;
-            if (this.controlSettings.normalizeNoise.value) {
-              // Calculate the widest row's arc length and character count (last row)
-              const widestRadius = rInner + ((nRows - 1) * radiusStep);
-              const widestArcLength = widestRadius * Math.abs(rad(arcEnd - arcStart));
-              const widestCharCount = Math.ceil(widestArcLength / (parseFloat(fSize) * 0.4 * txt.length)) * txt.length;
+            
+            if (this.controlSettings.angularNoise.value) {
+              // Angular-based sampling for stable "islands" pattern
+              // Create a fixed angular grid independent of character count
+              const totalArcAngle = Math.abs(arcEnd - arcStart); // in degrees
+              const angularResolution = this.controlSettings.angularResolution.value; // degrees per grid cell
+              const numGridCells = Math.floor(totalArcAngle / angularResolution);
               
-              // Map current character to the widest row's grid
-              const currentArcLength = radius * Math.abs(rad(arcEnd - arcStart));
+              // Map character to nearest grid cell
               const relativePosition = i / fullText.length; // 0 to 1 along current row
-              const mappedCharIndex = relativePosition * widestCharCount; // Map to widest row scale
+              const gridIndex = Math.floor(relativePosition * numGridCells);
               
-              // Use mapped position for consistent noise sampling
-              noiseX = mappedCharIndex * this.controlSettings.noiseScale.value * frequency;
+              // Use fixed grid position for stable vertical columns
+              noiseX = gridIndex * this.controlSettings.noiseScale.value * frequency;
               noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency;
             } else {
               // Use character index directly (creates skewed pattern)
@@ -779,33 +788,72 @@ class ArcSketch {
       this.controlSettings.useNoise.locked = e.target.checked;
     });
 
-    // Normalize noise control
-    const normalizeNoiseControl = document.createElement('li');
-    normalizeNoiseControl.innerHTML = `
+    // Angular noise control
+    const angularNoiseControl = document.createElement('li');
+    angularNoiseControl.innerHTML = `
       <div class="control-row">
         <div class="control-input-group">
-          <label for="normalizeNoise-checkbox">Normalize noise across rows: </label>
-          <input type="checkbox" id="normalizeNoise-checkbox" ${this.controlSettings.normalizeNoise.value ? 'checked' : ''}>
+          <label for="angularNoise-checkbox">Angular noise: </label>
+          <input type="checkbox" id="angularNoise-checkbox" ${this.controlSettings.angularNoise.value ? 'checked' : ''}>
         </div>
         <label class="control-lock-container">
           <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="normalizeNoise-lock" ${this.controlSettings.normalizeNoise.locked ? 'checked' : ''} class="control-checkbox">
+          <input type="checkbox" id="angularNoise-lock" ${this.controlSettings.angularNoise.locked ? 'checked' : ''} class="control-checkbox">
         </label>
       </div>
     `;
-    values.append(normalizeNoiseControl);
+    values.append(angularNoiseControl);
 
-    const normalizeNoiseCheckbox = normalizeNoiseControl.querySelector('#normalizeNoise-checkbox');
-    const normalizeNoiseLock = normalizeNoiseControl.querySelector('#normalizeNoise-lock');
+    const angularNoiseCheckbox = angularNoiseControl.querySelector('#angularNoise-checkbox');
+    const angularNoiseLock = angularNoiseControl.querySelector('#angularNoise-lock');
     
-    normalizeNoiseCheckbox.addEventListener('change', (e) => {
-      this.controlSettings.normalizeNoise.value = e.target.checked;
+    angularNoiseCheckbox.addEventListener('change', (e) => {
+      this.controlSettings.angularNoise.value = e.target.checked;
       this.updateSketch();
     });
 
     // Sync lock state with internal state
-    normalizeNoiseLock.addEventListener('change', (e) => {
-      this.controlSettings.normalizeNoise.locked = e.target.checked;
+    angularNoiseLock.addEventListener('change', (e) => {
+      this.controlSettings.angularNoise.locked = e.target.checked;
+    });
+
+    // Angular resolution control
+    const angularResolutionControl = document.createElement('li');
+    const angularResolutionRange = this.controlSettings.angularResolution;
+    angularResolutionControl.innerHTML = `
+      <label for="angularResolution-slider">Angular resolution (°): </label>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="angularResolution-slider" min="${angularResolutionRange.min}" max="${angularResolutionRange.max}" step="${angularResolutionRange.step}" value="${angularResolutionRange.value}" class="control-slider">
+          <input type="number" id="angularResolution-input" min="${angularResolutionRange.min}" max="${angularResolutionRange.max}" step="${angularResolutionRange.step}" value="${angularResolutionRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="angularResolution-lock" ${angularResolutionRange.locked ? 'checked' : ''} class="control-checkbox">
+        </label>
+      </div>
+    `;
+    values.append(angularResolutionControl);
+
+    const angularResolutionSlider = angularResolutionControl.querySelector('#angularResolution-slider');
+    const angularResolutionInput = angularResolutionControl.querySelector('#angularResolution-input');
+    const angularResolutionLock = angularResolutionControl.querySelector('#angularResolution-lock');
+    
+    angularResolutionSlider.addEventListener('input', (e) => {
+      angularResolutionInput.value = e.target.value;
+      this.controlSettings.angularResolution.value = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+    
+    angularResolutionInput.addEventListener('input', (e) => {
+      angularResolutionSlider.value = e.target.value;
+      this.controlSettings.angularResolution.value = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+
+    // Sync lock state with internal state
+    angularResolutionLock.addEventListener('change', (e) => {
+      this.controlSettings.angularResolution.locked = e.target.checked;
     });
 
     // Inverse width mapping control
@@ -1130,7 +1178,8 @@ class ArcSketch {
       const useBlanksLocked = this.controlSettings.useBlanks.locked;
       const blanksProbLocked = this.controlSettings.blanksProb.locked;
       const useNoiseLocked = this.controlSettings.useNoise.locked;
-      const normalizeNoiseLocked = this.controlSettings.normalizeNoise.locked;
+      const angularNoiseLocked = this.controlSettings.angularNoise.locked;
+      const angularResolutionLocked = this.controlSettings.angularResolution.locked;
       const inverseWidthMappingLocked = this.controlSettings.inverseWidthMapping.locked;
       const noiseScaleLocked = this.controlSettings.noiseScale.locked;
       const noiseOctavesLocked = this.controlSettings.noiseOctaves.locked;
@@ -1172,8 +1221,13 @@ class ArcSketch {
         this.controlSettings.useNoise.value = Math.random() > 0.2; // 80% chance to use noise
       }
       
-      if (!normalizeNoiseLocked) {
-        this.controlSettings.normalizeNoise.value = Math.random() > 0.5; // 50% chance to normalize noise
+      if (!angularNoiseLocked) {
+        this.controlSettings.angularNoise.value = Math.random() > 0.5; // 50% chance to use angular noise
+      }
+      
+      if (!angularResolutionLocked) {
+        const range = this.controlSettings.angularResolution;
+        this.controlSettings.angularResolution.value = rndInt(range.min * 10, range.max * 10) / 10;
       }
       
       if (!inverseWidthMappingLocked) {
@@ -1250,8 +1304,20 @@ class ArcSketch {
         noiseCheckbox.checked = this.controlSettings.useNoise.value;
       }
       
-      if (!normalizeNoiseLocked) {
-        normalizeNoiseCheckbox.checked = this.controlSettings.normalizeNoise.value;
+      if (!angularNoiseLocked) {
+        const angularNoiseCheckbox = document.getElementById('angularNoise-checkbox');
+        if (angularNoiseCheckbox) {
+          angularNoiseCheckbox.checked = this.controlSettings.angularNoise.value;
+        }
+      }
+      
+      if (!angularResolutionLocked) {
+        const angularResolutionSlider = document.getElementById('angularResolution-slider');
+        const angularResolutionInput = document.getElementById('angularResolution-input');
+        if (angularResolutionSlider && angularResolutionInput) {
+          angularResolutionSlider.value = this.controlSettings.angularResolution.value;
+          angularResolutionInput.value = this.controlSettings.angularResolution.value;
+        }
       }
       
       if (!inverseWidthMappingLocked) {
@@ -1546,7 +1612,8 @@ class ArcSketch {
     this.controlSettings.useBlanks.locked = document.getElementById('useBlanks-lock')?.checked || false;
     this.controlSettings.blanksProb.locked = document.getElementById('blanksProb-lock')?.checked || false;
     this.controlSettings.useNoise.locked = document.getElementById('useNoise-lock')?.checked || false;
-    this.controlSettings.normalizeNoise.locked = document.getElementById('normalizeNoise-lock')?.checked || false;
+    this.controlSettings.angularNoise.locked = document.getElementById('angularNoise-lock')?.checked || false;
+    this.controlSettings.angularResolution.locked = document.getElementById('angularResolution-lock')?.checked || false;
     this.controlSettings.inverseWidthMapping.locked = document.getElementById('inverseWidthMapping-lock')?.checked || false;
     this.controlSettings.noiseScale.locked = document.getElementById('noiseScale-lock')?.checked || false;
     this.controlSettings.noiseOctaves.locked = document.getElementById('noiseOctaves-lock')?.checked || false;
@@ -1564,7 +1631,8 @@ class ArcSketch {
       useBlanks: this.controlSettings.useBlanks.locked,
       blanksProb: this.controlSettings.blanksProb.locked,
       useNoise: this.controlSettings.useNoise.locked,
-      normalizeNoise: this.controlSettings.normalizeNoise.locked,
+      angularNoise: this.controlSettings.angularNoise.locked,
+      angularResolution: this.controlSettings.angularResolution.locked,
       inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
       noiseScale: this.controlSettings.noiseScale.locked,
       noiseOctaves: this.controlSettings.noiseOctaves.locked,
@@ -1623,10 +1691,18 @@ class ArcSketch {
       noiseCheckbox.checked = this.controlSettings.useNoise.value;
     }
     
-    // Update normalize noise toggle
-    const normalizeNoiseCheckbox = document.getElementById('normalizeNoise-checkbox');
-    if (normalizeNoiseCheckbox) {
-      normalizeNoiseCheckbox.checked = this.controlSettings.normalizeNoise.value;
+    // Update angular noise toggle
+    const angularNoiseCheckbox = document.getElementById('angularNoise-checkbox');
+    if (angularNoiseCheckbox) {
+      angularNoiseCheckbox.checked = this.controlSettings.angularNoise.value;
+    }
+    
+    // Update angular resolution controls
+    const angularResolutionSlider = document.getElementById('angularResolution-slider');
+    const angularResolutionInput = document.getElementById('angularResolution-input');
+    if (angularResolutionSlider && angularResolutionInput) {
+      angularResolutionSlider.value = this.controlSettings.angularResolution.value;
+      angularResolutionInput.value = this.controlSettings.angularResolution.value;
     }
     
     // Update inverse width mapping toggle
@@ -1702,7 +1778,8 @@ class ArcSketch {
         useBlanks: this.controlSettings.useBlanks.locked,
         blanksProb: this.controlSettings.blanksProb.locked,
         useNoise: this.controlSettings.useNoise.locked,
-        normalizeNoise: this.controlSettings.normalizeNoise.locked,
+        angularNoise: this.controlSettings.angularNoise.locked,
+        angularResolution: this.controlSettings.angularResolution.locked,
         inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
         noiseScale: this.controlSettings.noiseScale.locked,
         noiseOctaves: this.controlSettings.noiseOctaves.locked,
@@ -1722,7 +1799,8 @@ class ArcSketch {
       const useBlanksLock = document.getElementById('useBlanks-lock');
       const blanksProbLock = document.getElementById('blanksProb-lock');
       const useNoiseLock = document.getElementById('useNoise-lock');
-      const normalizeNoiseLock = document.getElementById('normalizeNoise-lock');
+      const angularNoiseLock = document.getElementById('angularNoise-lock');
+      const angularResolutionLock = document.getElementById('angularResolution-lock');
       const inverseWidthMappingLock = document.getElementById('inverseWidthMapping-lock');
       const noiseScaleLock = document.getElementById('noiseScale-lock');
       const noiseOctavesLock = document.getElementById('noiseOctaves-lock');
@@ -1738,7 +1816,8 @@ class ArcSketch {
       if (useBlanksLock) useBlanksLock.checked = lockStates.useBlanks || false;
       if (blanksProbLock) blanksProbLock.checked = lockStates.blanksProb || false;
       if (useNoiseLock) useNoiseLock.checked = lockStates.useNoise || false;
-      if (normalizeNoiseLock) normalizeNoiseLock.checked = lockStates.normalizeNoise || false;
+      if (angularNoiseLock) angularNoiseLock.checked = lockStates.angularNoise || false;
+      if (angularResolutionLock) angularResolutionLock.checked = lockStates.angularResolution || false;
       if (inverseWidthMappingLock) inverseWidthMappingLock.checked = lockStates.inverseWidthMapping || false;
       if (noiseScaleLock) noiseScaleLock.checked = lockStates.noiseScale || false;
       if (noiseOctavesLock) noiseOctavesLock.checked = lockStates.noiseOctaves || false;
@@ -1755,7 +1834,8 @@ class ArcSketch {
       this.controlSettings.useBlanks.locked = lockStates.useBlanks || false;
       this.controlSettings.blanksProb.locked = lockStates.blanksProb || false;
       this.controlSettings.useNoise.locked = lockStates.useNoise || false;
-      this.controlSettings.normalizeNoise.locked = lockStates.normalizeNoise || false;
+      this.controlSettings.angularNoise.locked = lockStates.angularNoise || false;
+      this.controlSettings.angularResolution.locked = lockStates.angularResolution || false;
       this.controlSettings.inverseWidthMapping.locked = lockStates.inverseWidthMapping || false;
       this.controlSettings.noiseScale.locked = lockStates.noiseScale || false;
       this.controlSettings.noiseOctaves.locked = lockStates.noiseOctaves || false;
