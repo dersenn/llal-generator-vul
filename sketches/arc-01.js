@@ -76,6 +76,7 @@ class ArcSketch {
     // Static settings that don't have controls
     this.staticSettings = {
       useFilter: false,
+      useNoise: true,
       borderTop: 0,
       wdths: [50, 100, 150, 200],
       nCols: 20,
@@ -101,7 +102,7 @@ class ArcSketch {
         step: 1,
         default: 120,
         value: 120,
-        locked: true
+        locked: false
       },
       lineSpacing: {
         type: 'range',
@@ -125,13 +126,6 @@ class ArcSketch {
       },
       
       // Noise controls
-      useNoise: {
-        type: 'toggle',
-        label: 'Use noise',
-        default: true,
-        value: true,
-        locked: true
-      },
       angularNoise: {
         type: 'toggle',
         label: 'Angular noise',
@@ -157,17 +151,17 @@ class ArcSketch {
         step: 0.05,
         default: 0.5,
         value: 0.5,
-        locked: true
+        locked: false
       },
       noiseScale: {
         type: 'range',
         label: 'Noise scale',
-        min: 0.005,
-        max: 0.2,
-        step: 0.005,
+        min: 0.001,
+        max: 0.1,
+        step: 0.001,
         default: 0.06,
         value: 0.06,
-        locked: true
+        locked: false
       },
       noiseOctaves: {
         type: 'range',
@@ -177,7 +171,7 @@ class ArcSketch {
         step: 1,
         default: 3,
         value: 3,
-        locked: true
+        locked: false
       },
       noisePersistence: {
         type: 'range',
@@ -197,7 +191,7 @@ class ArcSketch {
         step: 0.1,
         default: 1.2,
         value: 1.2,
-        locked: true
+        locked: false
       },
       noiseLacunarity: {
         type: 'range',
@@ -244,11 +238,9 @@ class ArcSketch {
     this.isInitializing = true;
 
     // Initialize noise generator using the main seed system
-    if (this.controlSettings.useNoise.value) {
-      // Use the main seed for noise consistency
-      this.originalNoiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
-      this.noise = new SimplexNoise(this.originalNoiseSeed);
-    }
+    // Always use noise for all sketches
+    this.originalNoiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
+    this.noise = new SimplexNoise(this.originalNoiseSeed);
 
     // Calculate font size dynamically based on number of rows
     this.updateFontSize();
@@ -530,9 +522,9 @@ class ArcSketch {
       for (let i = 0; i < fullText.length; i++) {
         const span = document.createElementNS(this.svg.ns, 'tspan');
         
-        // Use noise for width variations if enabled
+        // Use noise for width variations (always enabled)
         let width;
-        if (this.controlSettings.useNoise.value && this.noise) {
+        if (this.staticSettings.useNoise && this.noise) {
           // Create multi-octave noise for more varied patterns
           let noiseValue = 0;
           let amplitude = 1.0;
@@ -708,10 +700,6 @@ class ArcSketch {
     
     checkbox.addEventListener('change', (e) => {
       config.value = e.target.checked;
-      // Special handling for noise initialization
-      if (key === 'useNoise' && config.value && !this.noise) {
-        this.noise = new SimplexNoise(this.originalNoiseSeed);
-      }
       this.updateSketch();
       if (!this.isInitializing) this.saveSettings();
     });
@@ -1103,11 +1091,9 @@ class ArcSketch {
                 console.log('Seed restored from SVG:', this.seed.hash);
               }
               
-              // Reinitialize noise if needed
-              if (this.controlSettings.useNoise.value) {
-                const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
-                this.noise = new SimplexNoise(noiseSeed);
-              }
+              // Reinitialize noise (always enabled)
+              const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
+              this.noise = new SimplexNoise(noiseSeed);
               
               // Update UI controls to reflect loaded values
               this.restoreControlsFromSettings();
@@ -1144,11 +1130,11 @@ class ArcSketch {
     // Clear localStorage
     localStorage.removeItem('arcSketchSettings');
 
-    // Reinitialize noise if needed
-    if (this.controlSettings.useNoise.value) {
-      // Use the original noise seed to maintain consistency
-      this.noise = new SimplexNoise(this.originalNoiseSeed);
-    }
+    // Reinitialize noise (always enabled)
+    this.noise = new SimplexNoise(this.originalNoiseSeed);
+
+    // Ensure we're not in initialization mode
+    this.isInitializing = false;
 
     // Update UI controls to reflect reset values
     this.restoreControlsFromSettings();
@@ -1175,7 +1161,6 @@ class ArcSketch {
     this.controlSettings.nRows.locked = document.getElementById('nRows-lock')?.checked || false;
     this.controlSettings.lineSpacing.locked = document.getElementById('lineSpacing-lock')?.checked || false;
     this.controlSettings.shiftTextPattern.locked = document.getElementById('shiftTextPattern-lock')?.checked || false;
-    this.controlSettings.useNoise.locked = document.getElementById('useNoise-lock')?.checked || false;
     this.controlSettings.angularNoise.locked = document.getElementById('angularNoise-lock')?.checked || false;
     this.controlSettings.angularResolution.locked = document.getElementById('angularResolution-lock')?.checked || false;
     this.controlSettings.yScaleFactor.locked = document.getElementById('yScaleFactor-lock')?.checked || false;
@@ -1193,7 +1178,6 @@ class ArcSketch {
       nRows: this.controlSettings.nRows.locked,
       lineSpacing: this.controlSettings.lineSpacing.locked,
       shiftTextPattern: this.controlSettings.shiftTextPattern.locked,
-      useNoise: this.controlSettings.useNoise.locked,
       angularNoise: this.controlSettings.angularNoise.locked,
       angularResolution: this.controlSettings.angularResolution.locked,
       yScaleFactor: this.controlSettings.yScaleFactor.locked,
@@ -1339,12 +1323,8 @@ class ArcSketch {
           break;
           
         case 'toggle':
-          // Random boolean with some special logic
-          if (key === 'useNoise') {
-            config.value = Math.random() > 0.2; // 80% chance to use noise
-          } else {
-            config.value = Math.random() > 0.5; // 50% chance for other toggles
-          }
+          // Random boolean
+          config.value = Math.random() > 0.5; // 50% chance for toggles
           break;
           
         case 'color':
