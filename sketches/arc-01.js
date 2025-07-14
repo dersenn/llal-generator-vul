@@ -69,6 +69,23 @@ class ArcSketch {
     this.defs = document.createElementNS(this.svg.ns, 'defs');
     this.svg.stage.prepend(this.defs);
 
+    // Static settings that don't have controls
+    this.staticSettings = {
+      useFilter: false,
+      borderTop: 0,
+      wdths: [50, 100, 150, 200],
+      nCols: 20,
+      leftAngle: 18,
+      rightAngle: 24,
+      txt: 'LLAL',
+      guides: {
+        show: true,
+        color: '#0f0',
+        width: 1,
+        opacity: 1
+      }
+    };
+
     // Comprehensive control settings - each control has all its configuration in one place
     this.controlSettings = {
       // Layout controls
@@ -177,23 +194,6 @@ class ArcSketch {
         default: '#ffffff',
         value: '#ffffff',
         locked: true
-      }
-    };
-
-    // Static settings that don't have controls
-    this.staticSettings = {
-      useFilter: false,
-      borderTop: 0,
-      wdths: [50, 100, 150, 200],
-      nCols: 20,
-      leftAngle: 24,
-      rightAngle: 24,
-      txt: 'LLAL',
-      guides: {
-        show: true,
-        color: '#0f0',
-        width: 1,
-        opacity: 1
       }
     };
 
@@ -1392,10 +1392,9 @@ class ArcSketch {
 
   saveSettings() {
     try {
-      // Save the complete control settings structure
+      // Only save the control settings structure
       const settingsData = {
-        controlSettings: this.controlSettings,
-        staticSettings: this.staticSettings
+        controlSettings: this.controlSettings
       };
       localStorage.setItem('arcSketchSettings', JSON.stringify(settingsData));
       console.log('Settings saved successfully');
@@ -1410,10 +1409,8 @@ class ArcSketch {
       const saved = localStorage.getItem('arcSketchSettings');
       if (saved) {
         const settingsData = JSON.parse(saved);
-        
-        // Handle both old format and new format
+        // Only restore controlSettings, never staticSettings
         if (settingsData.controlSettings) {
-          // New format with controlSettings - merge more carefully
           Object.keys(settingsData.controlSettings).forEach(key => {
             if (this.controlSettings[key]) {
               // For shiftTextPattern, preserve the options array
@@ -1428,35 +1425,8 @@ class ArcSketch {
               }
             }
           });
-          if (settingsData.staticSettings) {
-            this.staticSettings = { ...this.staticSettings, ...settingsData.staticSettings };
-          }
-        } else {
-          // Old format - try to migrate
-          console.log('Migrating old settings format...');
-          if (settingsData.settings) {
-            // Map old settings to new structure
-            Object.keys(settingsData.settings).forEach(key => {
-              if (this.controlSettings[key]) {
-                // Special handling for shiftTextPattern migration from boolean to string
-                if (key === 'shiftTextPattern') {
-                  this.controlSettings[key].value = settingsData.settings[key] ? 'forward' : 'none';
-                } else {
-                  this.controlSettings[key].value = settingsData.settings[key];
-                }
-              }
-            });
-          }
-          if (settingsData.locks) {
-            // Map old locks to new structure
-            Object.keys(settingsData.locks).forEach(key => {
-              if (this.controlSettings[key]) {
-                this.controlSettings[key].locked = settingsData.locks[key];
-              }
-            });
-          }
         }
-        
+        // Do not restore staticSettings from storage!
         console.log('Settings loaded successfully');
         console.log('Loaded shiftTextPattern:', this.controlSettings.shiftTextPattern);
       }
@@ -1528,9 +1498,6 @@ class ArcSketch {
                     }
                   }
                 });
-                if (settingsData.staticSettings) {
-                  this.staticSettings = { ...this.staticSettings, ...settingsData.staticSettings };
-                }
               } else {
                 // Old format - try to migrate
                 console.log('Migrating old settings format from SVG...');
