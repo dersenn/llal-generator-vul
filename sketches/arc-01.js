@@ -34,6 +34,10 @@ class ArcSketch {
     this.createFilter();
     this.createArcText();
     this.setupControls();
+    
+    // Enable auto-saving now that initialization is complete
+    this.isInitializing = false;
+    
     this.updateHashDisplay();
   }
 
@@ -75,14 +79,14 @@ class ArcSketch {
       borderTop: 0,
       wdths: [50, 100, 150, 200],
       nCols: 20,
-      leftAngle: 18,
+      leftAngle: 24,
       rightAngle: 24,
       txt: 'LLAL',
       guides: {
         show: true,
         color: '#0f0',
         width: 1,
-        opacity: 1
+        opacity: .3
       }
     };
 
@@ -144,20 +148,28 @@ class ArcSketch {
         step: 0.05,
         default: 0.3,
         value: 0.3,
+        locked: true
+      },
+      yScaleFactor: {
+        min: 0.1,
+        max: 30.0,
+        step: 0.1,
+        default: 1.5,
+        value: 1.5,
         locked: false
       },
       inverseWidthMapping: {
         default: false,
         value: false,
-        locked: false
+        locked: true
       },
       noiseScale: {
         min: 0.005,
         max: 0.2,
         step: 0.005,
-        default: 0.1,
-        value: 0.1,
-        locked: false
+        default: 0.06,
+        value: 0.06,
+        locked: true
       },
       noiseOctaves: {
         min: 1,
@@ -165,7 +177,7 @@ class ArcSketch {
         step: 1,
         default: 3,
         value: 3,
-        locked: false
+        locked: true
       },
       noisePersistence: {
         min: 0.1,
@@ -179,16 +191,16 @@ class ArcSketch {
         min: 0.1,
         max: 3.0,
         step: 0.1,
-        default: 1.0,
-        value: 1.0,
-        locked: false
+        default: 1.2,
+        value: 1.2,
+        locked: true
       },
       noiseLacunarity: {
-        min: 0.5,
-        max: 3.0,
-        step: 0.1,
-        default: 1.5,
-        value: 1.5,
+        min: 0.05,
+        max: 1.5,
+        step: 0.05,
+        default: 0.9,
+        value: 0.9,
         locked: false
       },
       
@@ -207,6 +219,9 @@ class ArcSketch {
 
     // Load saved settings if available
     this.loadSettings();
+    
+    // Flag to prevent auto-saving during initial setup
+    this.isInitializing = true;
 
     // Initialize noise generator using the main seed system
     if (this.controlSettings.useNoise.value) {
@@ -224,6 +239,9 @@ class ArcSketch {
     document.body.style['background-color'] = '#eee';
     this.svg.stage.style['font-family'] = 'LLAL-linear';
     this.svg.stage.style['background-color'] = this.controlSettings.colBG.value;
+    
+    // Create actual background rectangle for export compatibility
+    this.createBackgroundRect();
   }
 
   createWidthStyles() {
@@ -242,6 +260,26 @@ class ArcSketch {
     
     style.textContent = cssRules;
     this.defs.appendChild(style);
+  }
+
+  createBackgroundRect() {
+    // Remove existing background rectangle if it exists
+    const existingBg = this.svg.stage.querySelector('#background-rect');
+    if (existingBg) {
+      existingBg.remove();
+    }
+    
+    // Create new background rectangle
+    const bgRect = document.createElementNS(this.svg.ns, 'rect');
+    bgRect.setAttribute('id', 'background-rect');
+    bgRect.setAttribute('x', '0');
+    bgRect.setAttribute('y', '0');
+    bgRect.setAttribute('width', this.svg.w);
+    bgRect.setAttribute('height', this.svg.h);
+    bgRect.setAttribute('fill', this.controlSettings.colBG.value);
+    
+    // Insert as first element so it appears behind everything
+    this.svg.stage.insertBefore(bgRect, this.svg.stage.firstChild);
   }
 
   updateFontSize() {
@@ -496,12 +534,13 @@ class ArcSketch {
               const gridIndex = Math.floor(relativePosition * numGridCells);
               
               // Use fixed grid position for stable vertical columns
-              noiseX = gridIndex * this.controlSettings.noiseScale.value * frequency;
-              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency;
+              // Scale Y-axis to match X-axis frequency for balanced pattern changes
+              noiseX = gridIndex * this.controlSettings.noiseScale.value * frequency * 2;
+              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency * 2 * this.controlSettings.yScaleFactor.value;
             } else {
               // Use character index directly (creates skewed pattern)
               noiseX = i * this.controlSettings.noiseScale.value * frequency;
-              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency;
+              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
             }
             noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
             
@@ -587,7 +626,7 @@ class ArcSketch {
       input.value = e.target.value;
       this.controlSettings.nRows.value = parseInt(e.target.value);
       this.updateSketch();
-      this.saveSettings(); // Auto-save when value changes
+      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
     });
     
     input.addEventListener('input', (e) => {
@@ -627,7 +666,7 @@ class ArcSketch {
       lineSpacingInput.value = e.target.value;
       this.controlSettings.lineSpacing.value = parseFloat(e.target.value);
       this.updateSketch();
-      this.saveSettings(); // Auto-save when value changes
+      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
     });
     
     lineSpacingInput.addEventListener('input', (e) => {
@@ -675,13 +714,13 @@ class ArcSketch {
     textPatternShiftSelect.addEventListener('change', (e) => {
       this.controlSettings.shiftTextPattern.value = e.target.value;
       this.updateSketch();
-      this.saveSettings(); // Auto-save when value changes
+      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
     });
 
     // Sync lock state with internal state
     textPatternShiftLock.addEventListener('change', (e) => {
       this.controlSettings.shiftTextPattern.locked = e.target.checked;
-      this.saveSettings(); // Auto-save when lock state changes
+      if (!this.isInitializing) this.saveSettings(); // Auto-save when lock state changes
     });
 
     // Use blanks control
@@ -780,7 +819,7 @@ class ArcSketch {
         this.noise = new SimplexNoise(noiseSeed);
       }
       this.updateSketch();
-      this.saveSettings(); // Auto-save when value changes
+      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
     });
 
     // Sync lock state with internal state
@@ -854,6 +893,45 @@ class ArcSketch {
     // Sync lock state with internal state
     angularResolutionLock.addEventListener('change', (e) => {
       this.controlSettings.angularResolution.locked = e.target.checked;
+    });
+
+    // Y-axis scale factor control
+    const yScaleFactorControl = document.createElement('li');
+    const yScaleFactorRange = this.controlSettings.yScaleFactor;
+    yScaleFactorControl.innerHTML = `
+      <label for="yScaleFactor-slider">Y-axis pattern scale: </label>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="yScaleFactor-slider" min="${yScaleFactorRange.min}" max="${yScaleFactorRange.max}" step="${yScaleFactorRange.step}" value="${yScaleFactorRange.value}" class="control-slider">
+          <input type="number" id="yScaleFactor-input" min="${yScaleFactorRange.min}" max="${yScaleFactorRange.max}" step="${yScaleFactorRange.step}" value="${yScaleFactorRange.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="yScaleFactor-lock" ${yScaleFactorRange.locked ? 'checked' : ''} class="control-checkbox">
+        </label>
+      </div>
+    `;
+    values.append(yScaleFactorControl);
+
+    const yScaleFactorSlider = yScaleFactorControl.querySelector('#yScaleFactor-slider');
+    const yScaleFactorInput = yScaleFactorControl.querySelector('#yScaleFactor-input');
+    const yScaleFactorLock = yScaleFactorControl.querySelector('#yScaleFactor-lock');
+    
+    yScaleFactorSlider.addEventListener('input', (e) => {
+      yScaleFactorInput.value = e.target.value;
+      this.controlSettings.yScaleFactor.value = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+    
+    yScaleFactorInput.addEventListener('input', (e) => {
+      yScaleFactorSlider.value = e.target.value;
+      this.controlSettings.yScaleFactor.value = parseFloat(e.target.value);
+      this.updateSketch();
+    });
+
+    // Sync lock state with internal state
+    yScaleFactorLock.addEventListener('change', (e) => {
+      this.controlSettings.yScaleFactor.locked = e.target.checked;
     });
 
     // Inverse width mapping control
@@ -1107,7 +1185,7 @@ class ArcSketch {
       backgroundColorText.value = e.target.value;
       this.controlSettings.colBG.value = e.target.value;
       this.updateSketch();
-      this.saveSettings(); // Auto-save when value changes
+      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
     });
     
     backgroundColorText.addEventListener('input', (e) => {
@@ -1147,7 +1225,7 @@ class ArcSketch {
       foregroundColorText.value = e.target.value;
       this.controlSettings.colFG.value = e.target.value;
       this.updateSketch();
-      this.saveSettings(); // Auto-save when value changes
+      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
     });
     
     foregroundColorText.addEventListener('input', (e) => {
@@ -1180,6 +1258,7 @@ class ArcSketch {
       const useNoiseLocked = this.controlSettings.useNoise.locked;
       const angularNoiseLocked = this.controlSettings.angularNoise.locked;
       const angularResolutionLocked = this.controlSettings.angularResolution.locked;
+      const yScaleFactorLocked = this.controlSettings.yScaleFactor.locked;
       const inverseWidthMappingLocked = this.controlSettings.inverseWidthMapping.locked;
       const noiseScaleLocked = this.controlSettings.noiseScale.locked;
       const noiseOctavesLocked = this.controlSettings.noiseOctaves.locked;
@@ -1228,6 +1307,11 @@ class ArcSketch {
       if (!angularResolutionLocked) {
         const range = this.controlSettings.angularResolution;
         this.controlSettings.angularResolution.value = rndInt(range.min * 10, range.max * 10) / 10;
+      }
+      
+      if (!yScaleFactorLocked) {
+        const range = this.controlSettings.yScaleFactor;
+        this.controlSettings.yScaleFactor.value = rndInt(range.min * 10, range.max * 10) / 10;
       }
       
       if (!inverseWidthMappingLocked) {
@@ -1317,6 +1401,15 @@ class ArcSketch {
         if (angularResolutionSlider && angularResolutionInput) {
           angularResolutionSlider.value = this.controlSettings.angularResolution.value;
           angularResolutionInput.value = this.controlSettings.angularResolution.value;
+        }
+      }
+      
+      if (!yScaleFactorLocked) {
+        const yScaleFactorSlider = document.getElementById('yScaleFactor-slider');
+        const yScaleFactorInput = document.getElementById('yScaleFactor-input');
+        if (yScaleFactorSlider && yScaleFactorInput) {
+          yScaleFactorSlider.value = this.controlSettings.yScaleFactor.value;
+          yScaleFactorInput.value = this.controlSettings.yScaleFactor.value;
         }
       }
       
@@ -1423,18 +1516,21 @@ class ArcSketch {
     // Update font size based on new number of rows
     this.updateFontSize();
     
-    // Update SVG background color (this was missing!)
+    // Update both CSS background (for browser) and rectangle (for exports)
     this.svg.stage.style['background-color'] = this.controlSettings.colBG.value;
+    this.createBackgroundRect();
     
     // Clear existing text elements
     const existingTexts = this.svg.stage.querySelectorAll('text');
     existingTexts.forEach(text => text.remove());
     
-    // Clear existing reference lines and arcs
-    const existingPaths = this.svg.stage.querySelectorAll('path');
+    // Clear existing reference lines and arcs (but preserve background)
+    const existingPaths = this.svg.stage.querySelectorAll('path:not(#background-rect)');
     existingPaths.forEach(path => path.remove());
-    const existingLines = this.svg.stage.querySelectorAll('line');
+    const existingLines = this.svg.stage.querySelectorAll('line:not(#background-rect)');
     existingLines.forEach(line => line.remove());
+    const existingCircles = this.svg.stage.querySelectorAll('circle:not(#background-rect)');
+    existingCircles.forEach(circle => circle.remove());
     
     // Clear existing arc paths and styles from defs
     const existingDefPaths = this.defs.querySelectorAll('[id^="arc-path-"]');
@@ -1458,13 +1554,24 @@ class ArcSketch {
 
   saveSettings() {
     try {
-      // Only save the control settings structure
+      // Only save the actual values and locked states, not configuration metadata
+      const valuesToSave = {};
+      Object.keys(this.controlSettings).forEach(key => {
+        valuesToSave[key] = {
+          value: this.controlSettings[key].value,
+          locked: this.controlSettings[key].locked
+        };
+        // For shiftTextPattern, also preserve the current options array
+        if (key === 'shiftTextPattern' && this.controlSettings[key].options) {
+          valuesToSave[key].options = this.controlSettings[key].options;
+        }
+      });
+      
       const settingsData = {
-        controlSettings: this.controlSettings
+        controlSettings: valuesToSave
       };
       localStorage.setItem('arcSketchSettings', JSON.stringify(settingsData));
-      console.log('Settings saved successfully');
-      console.log('Saved shiftTextPattern:', this.controlSettings.shiftTextPattern);
+      console.log('Settings saved successfully (values and locks only)');
     } catch (e) {
       console.error('Failed to save settings:', e);
     }
@@ -1475,26 +1582,28 @@ class ArcSketch {
       const saved = localStorage.getItem('arcSketchSettings');
       if (saved) {
         const settingsData = JSON.parse(saved);
-        // Only restore controlSettings, never staticSettings
+        // Only restore values and locked states, preserve configuration metadata
         if (settingsData.controlSettings) {
           Object.keys(settingsData.controlSettings).forEach(key => {
-            if (this.controlSettings[key]) {
-              // For shiftTextPattern, preserve the options array
-              if (key === 'shiftTextPattern') {
-                this.controlSettings[key] = {
-                  ...this.controlSettings[key],
-                  ...settingsData.controlSettings[key],
-                  options: this.controlSettings[key].options || ['none', 'forward', 'backward', 'random']
-                };
-              } else {
-                this.controlSettings[key] = { ...this.controlSettings[key], ...settingsData.controlSettings[key] };
+            if (this.controlSettings[key] && settingsData.controlSettings[key]) {
+              const savedControl = settingsData.controlSettings[key];
+              
+              // Only restore value and locked, preserve min/max/step/default from code
+              if (savedControl.hasOwnProperty('value')) {
+                this.controlSettings[key].value = savedControl.value;
+              }
+              if (savedControl.hasOwnProperty('locked')) {
+                this.controlSettings[key].locked = savedControl.locked;
+              }
+              
+              // Special handling for shiftTextPattern options
+              if (key === 'shiftTextPattern' && savedControl.options) {
+                this.controlSettings[key].options = savedControl.options;
               }
             }
           });
         }
-        // Do not restore staticSettings from storage!
-        console.log('Settings loaded successfully');
-        console.log('Loaded shiftTextPattern:', this.controlSettings.shiftTextPattern);
+        console.log('Settings loaded successfully (values and locks only, preserved ranges)');
       }
     } catch (e) {
       console.error('Failed to load settings:', e);
@@ -1506,8 +1615,21 @@ class ArcSketch {
     // This is more reliable than embedding in the SVG structure
     const svgElement = document.querySelector('svg');
     if (svgElement) {
+      // Only save values and locked states, not configuration metadata
+      const valuesToSave = {};
+      Object.keys(this.controlSettings).forEach(key => {
+        valuesToSave[key] = {
+          value: this.controlSettings[key].value,
+          locked: this.controlSettings[key].locked
+        };
+        // For shiftTextPattern, also preserve the current options array
+        if (key === 'shiftTextPattern' && this.controlSettings[key].options) {
+          valuesToSave[key].options = this.controlSettings[key].options;
+        }
+      });
+      
       const settingsData = {
-        controlSettings: this.controlSettings,
+        controlSettings: valuesToSave,
         staticSettings: this.staticSettings
       };
       svgElement.setAttribute('data-sketch-settings', JSON.stringify(settingsData));
@@ -1549,18 +1671,22 @@ class ArcSketch {
               
               // Handle both old format and new format
               if (settingsData.controlSettings) {
-                // New format with controlSettings - merge more carefully
+                // New format - only restore values and locked states, preserve configuration metadata
                 Object.keys(settingsData.controlSettings).forEach(key => {
-                  if (this.controlSettings[key]) {
-                    // For shiftTextPattern, preserve the options array
-                    if (key === 'shiftTextPattern') {
-                      this.controlSettings[key] = {
-                        ...this.controlSettings[key],
-                        ...settingsData.controlSettings[key],
-                        options: this.controlSettings[key].options || ['none', 'forward', 'backward', 'random']
-                      };
-                    } else {
-                      this.controlSettings[key] = { ...this.controlSettings[key], ...settingsData.controlSettings[key] };
+                  if (this.controlSettings[key] && settingsData.controlSettings[key]) {
+                    const savedControl = settingsData.controlSettings[key];
+                    
+                    // Only restore value and locked, preserve min/max/step/default from code
+                    if (savedControl.hasOwnProperty('value')) {
+                      this.controlSettings[key].value = savedControl.value;
+                    }
+                    if (savedControl.hasOwnProperty('locked')) {
+                      this.controlSettings[key].locked = savedControl.locked;
+                    }
+                    
+                    // Special handling for shiftTextPattern options
+                    if (key === 'shiftTextPattern' && savedControl.options) {
+                      this.controlSettings[key].options = savedControl.options;
                     }
                   }
                 });
@@ -1586,7 +1712,7 @@ class ArcSketch {
               }
               
               this.updateSketch();
-              console.log('Settings loaded from SVG file');
+              console.log('Settings loaded from SVG file (values and locks only, preserved ranges)');
             } else {
               console.log('No settings found in SVG file');
             }
@@ -1614,6 +1740,7 @@ class ArcSketch {
     this.controlSettings.useNoise.locked = document.getElementById('useNoise-lock')?.checked || false;
     this.controlSettings.angularNoise.locked = document.getElementById('angularNoise-lock')?.checked || false;
     this.controlSettings.angularResolution.locked = document.getElementById('angularResolution-lock')?.checked || false;
+    this.controlSettings.yScaleFactor.locked = document.getElementById('yScaleFactor-lock')?.checked || false;
     this.controlSettings.inverseWidthMapping.locked = document.getElementById('inverseWidthMapping-lock')?.checked || false;
     this.controlSettings.noiseScale.locked = document.getElementById('noiseScale-lock')?.checked || false;
     this.controlSettings.noiseOctaves.locked = document.getElementById('noiseOctaves-lock')?.checked || false;
@@ -1633,6 +1760,7 @@ class ArcSketch {
       useNoise: this.controlSettings.useNoise.locked,
       angularNoise: this.controlSettings.angularNoise.locked,
       angularResolution: this.controlSettings.angularResolution.locked,
+      yScaleFactor: this.controlSettings.yScaleFactor.locked,
       inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
       noiseScale: this.controlSettings.noiseScale.locked,
       noiseOctaves: this.controlSettings.noiseOctaves.locked,
@@ -1703,6 +1831,14 @@ class ArcSketch {
     if (angularResolutionSlider && angularResolutionInput) {
       angularResolutionSlider.value = this.controlSettings.angularResolution.value;
       angularResolutionInput.value = this.controlSettings.angularResolution.value;
+    }
+    
+    // Update Y-scale factor controls
+    const yScaleFactorSlider = document.getElementById('yScaleFactor-slider');
+    const yScaleFactorInput = document.getElementById('yScaleFactor-input');
+    if (yScaleFactorSlider && yScaleFactorInput) {
+      yScaleFactorSlider.value = this.controlSettings.yScaleFactor.value;
+      yScaleFactorInput.value = this.controlSettings.yScaleFactor.value;
     }
     
     // Update inverse width mapping toggle
@@ -1780,6 +1916,7 @@ class ArcSketch {
         useNoise: this.controlSettings.useNoise.locked,
         angularNoise: this.controlSettings.angularNoise.locked,
         angularResolution: this.controlSettings.angularResolution.locked,
+        yScaleFactor: this.controlSettings.yScaleFactor.locked,
         inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
         noiseScale: this.controlSettings.noiseScale.locked,
         noiseOctaves: this.controlSettings.noiseOctaves.locked,
@@ -1801,6 +1938,7 @@ class ArcSketch {
       const useNoiseLock = document.getElementById('useNoise-lock');
       const angularNoiseLock = document.getElementById('angularNoise-lock');
       const angularResolutionLock = document.getElementById('angularResolution-lock');
+      const yScaleFactorLock = document.getElementById('yScaleFactor-lock');
       const inverseWidthMappingLock = document.getElementById('inverseWidthMapping-lock');
       const noiseScaleLock = document.getElementById('noiseScale-lock');
       const noiseOctavesLock = document.getElementById('noiseOctaves-lock');
@@ -1818,6 +1956,7 @@ class ArcSketch {
       if (useNoiseLock) useNoiseLock.checked = lockStates.useNoise || false;
       if (angularNoiseLock) angularNoiseLock.checked = lockStates.angularNoise || false;
       if (angularResolutionLock) angularResolutionLock.checked = lockStates.angularResolution || false;
+      if (yScaleFactorLock) yScaleFactorLock.checked = lockStates.yScaleFactor || false;
       if (inverseWidthMappingLock) inverseWidthMappingLock.checked = lockStates.inverseWidthMapping || false;
       if (noiseScaleLock) noiseScaleLock.checked = lockStates.noiseScale || false;
       if (noiseOctavesLock) noiseOctavesLock.checked = lockStates.noiseOctaves || false;
@@ -1836,6 +1975,7 @@ class ArcSketch {
       this.controlSettings.useNoise.locked = lockStates.useNoise || false;
       this.controlSettings.angularNoise.locked = lockStates.angularNoise || false;
       this.controlSettings.angularResolution.locked = lockStates.angularResolution || false;
+      this.controlSettings.yScaleFactor.locked = lockStates.yScaleFactor || false;
       this.controlSettings.inverseWidthMapping.locked = lockStates.inverseWidthMapping || false;
       this.controlSettings.noiseScale.locked = lockStates.noiseScale || false;
       this.controlSettings.noiseOctaves.locked = lockStates.noiseOctaves || false;
