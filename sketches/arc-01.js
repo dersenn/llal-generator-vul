@@ -94,6 +94,8 @@ class ArcSketch {
     this.controlSettings = {
       // Layout controls
       nRows: {
+        type: 'range',
+        label: 'Number of lines',
         min: 30,
         max: 240,
         step: 1,
@@ -102,6 +104,8 @@ class ArcSketch {
         locked: true
       },
       lineSpacing: {
+        type: 'range',
+        label: 'Line spacing (font size)',
         min: 0.5,
         max: 3.0,
         step: 0.1,
@@ -112,6 +116,8 @@ class ArcSketch {
       
       // Text controls
       shiftTextPattern: {
+        type: 'select',
+        label: 'Shift text',
         options: ['none', 'forward', 'backward', 'random'],
         default: 'forward',
         value: 'forward',
@@ -120,16 +126,22 @@ class ArcSketch {
       
       // Noise controls
       useNoise: {
+        type: 'toggle',
+        label: 'Use noise',
         default: true,
         value: true,
         locked: true
       },
       angularNoise: {
+        type: 'toggle',
+        label: 'Angular noise',
         default: false,
         value: true,
         locked: true
       },
       angularResolution: {
+        type: 'range',
+        label: 'Angular grid resolution (°)',
         min: 0.05,
         max: 0.9,
         step: 0.05,
@@ -138,6 +150,8 @@ class ArcSketch {
         locked: true
       },
       yScaleFactor: {
+        type: 'range',
+        label: 'Y-axis pattern scale',
         min: 0.05,
         max: 5.0,
         step: 0.05,
@@ -145,12 +159,9 @@ class ArcSketch {
         value: 0.5,
         locked: true
       },
-      inverseWidthMapping: {
-        default: false,
-        value: false,
-        locked: true
-      },
       noiseScale: {
+        type: 'range',
+        label: 'Noise scale',
         min: 0.005,
         max: 0.2,
         step: 0.005,
@@ -159,6 +170,8 @@ class ArcSketch {
         locked: true
       },
       noiseOctaves: {
+        type: 'range',
+        label: 'Noise octaves',
         min: 1,
         max: 6,
         step: 1,
@@ -167,6 +180,8 @@ class ArcSketch {
         locked: true
       },
       noisePersistence: {
+        type: 'range',
+        label: 'Noise persistence',
         min: 0.1,
         max: 1.0,
         step: 0.1,
@@ -175,6 +190,8 @@ class ArcSketch {
         locked: false
       },
       noiseContrast: {
+        type: 'range',
+        label: 'Noise contrast',
         min: 0.1,
         max: 3.0,
         step: 0.1,
@@ -183,6 +200,8 @@ class ArcSketch {
         locked: true
       },
       noiseLacunarity: {
+        type: 'range',
+        label: 'Noise lacunarity',
         min: 0.05,
         max: 1.5,
         step: 0.05,
@@ -190,14 +209,25 @@ class ArcSketch {
         value: 0.9,
         locked: false
       },
-      
+      inverseWidthMapping: {
+        type: 'toggle',
+        label: 'Inverse width mapping',
+        default: false,
+        value: false,
+        locked: true
+      },
+
       // Color controls
       colBG: {
+        type: 'color',
+        label: 'Background color',
         default: '#000000',
         value: '#000000',
         locked: true
       },
       colFG: {
+        type: 'color',
+        label: 'Text color',
         default: '#ffffff',
         value: '#ffffff',
         locked: true
@@ -577,6 +607,167 @@ class ArcSketch {
     }
   }
 
+  createRangeControl(key, config) {
+    const control = document.createElement('li');
+    control.innerHTML = `
+      <label for="${key}-slider">${config.label}: </label>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="range" id="${key}-slider" min="${config.min}" max="${config.max}" step="${config.step}" value="${config.value}" class="control-slider">
+          <input type="number" id="${key}-input" min="${config.min}" max="${config.max}" step="${config.step}" value="${config.value}" class="control-number">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="${key}-lock" ${config.locked ? 'checked' : ''} class="control-checkbox">
+        </label>
+      </div>
+    `;
+
+    const slider = control.querySelector(`#${key}-slider`);
+    const input = control.querySelector(`#${key}-input`);
+    const lock = control.querySelector(`#${key}-lock`);
+    
+    // Link slider and input
+    slider.addEventListener('input', (e) => {
+      input.value = e.target.value;
+      config.value = parseFloat(e.target.value);
+      this.updateSketch();
+      if (!this.isInitializing) this.saveSettings();
+    });
+    
+    input.addEventListener('input', (e) => {
+      slider.value = e.target.value;
+      config.value = parseFloat(e.target.value);
+      this.updateSketch();
+      if (!this.isInitializing) this.saveSettings();
+    });
+
+    lock.addEventListener('change', (e) => {
+      config.locked = e.target.checked;
+      this.updateLockAllCheckbox();
+      if (!this.isInitializing) this.saveSettings();
+    });
+
+    return control;
+  }
+
+  createSelectControl(key, config) {
+    const control = document.createElement('li');
+    control.innerHTML = `
+      <div class="control-row">
+        <div class="control-input-group">
+          <label for="${key}-select">${config.label}:</label>
+          <select id="${key}-select" class="control-select">
+            ${config.options.map(option => 
+              `<option value="${option}" ${option === config.value ? 'selected' : ''}>${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="${key}-lock" ${config.locked ? 'checked' : ''} class="control-checkbox">
+        </label>
+      </div>
+    `;
+
+    const select = control.querySelector(`#${key}-select`);
+    const lock = control.querySelector(`#${key}-lock`);
+    
+    select.addEventListener('change', (e) => {
+      config.value = e.target.value;
+      this.updateSketch();
+      if (!this.isInitializing) this.saveSettings();
+    });
+
+    lock.addEventListener('change', (e) => {
+      config.locked = e.target.checked;
+      this.updateLockAllCheckbox();
+      if (!this.isInitializing) this.saveSettings();
+    });
+
+    return control;
+  }
+
+  createToggleControl(key, config) {
+    const control = document.createElement('li');
+    control.innerHTML = `
+      <div class="control-row">
+        <div class="control-input-group">
+          <label for="${key}-checkbox">${config.label}: </label>
+          <input type="checkbox" id="${key}-checkbox" ${config.value ? 'checked' : ''}>
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="${key}-lock" ${config.locked ? 'checked' : ''} class="control-checkbox">
+        </label>
+      </div>
+    `;
+
+    const checkbox = control.querySelector(`#${key}-checkbox`);
+    const lock = control.querySelector(`#${key}-lock`);
+    
+    checkbox.addEventListener('change', (e) => {
+      config.value = e.target.checked;
+      // Special handling for noise initialization
+      if (key === 'useNoise' && config.value && !this.noise) {
+        this.noise = new SimplexNoise(this.originalNoiseSeed);
+      }
+      this.updateSketch();
+      if (!this.isInitializing) this.saveSettings();
+    });
+
+    lock.addEventListener('change', (e) => {
+      config.locked = e.target.checked;
+      this.updateLockAllCheckbox();
+      if (!this.isInitializing) this.saveSettings();
+    });
+
+    return control;
+  }
+
+  createColorControl(key, config) {
+    const control = document.createElement('li');
+    control.innerHTML = `
+      <label for="${key}-input">${config.label}: </label>
+      <div class="control-row">
+        <div class="control-input-group">
+          <input type="color" id="${key}-input" value="${config.value}" class="control-color-input">
+          <input type="text" id="${key}-text" value="${config.value}" class="control-color-text">
+        </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="${key}-lock" ${config.locked ? 'checked' : ''} class="control-checkbox">
+        </label>
+      </div>
+    `;
+
+    const colorInput = control.querySelector(`#${key}-input`);
+    const colorText = control.querySelector(`#${key}-text`);
+    const lock = control.querySelector(`#${key}-lock`);
+    
+    colorInput.addEventListener('input', (e) => {
+      colorText.value = e.target.value;
+      config.value = e.target.value;
+      this.updateSketch();
+      if (!this.isInitializing) this.saveSettings();
+    });
+    
+    colorText.addEventListener('input', (e) => {
+      colorInput.value = e.target.value;
+      config.value = e.target.value;
+      this.updateSketch();
+      if (!this.isInitializing) this.saveSettings();
+    });
+
+    lock.addEventListener('change', (e) => {
+      config.locked = e.target.checked;
+      this.updateLockAllCheckbox();
+      if (!this.isInitializing) this.saveSettings();
+    });
+
+    return control;
+  }
+
   setupControls() {
     const values = document.createElement('ul');
 
@@ -585,131 +776,32 @@ class ArcSketch {
     reloadBtn.setAttribute('id', 'btnreload');
     reloadBtn.append('New Seed');
 
-    // Number of lines control
-    const linesControl = document.createElement('li');
-    const nRowsRange = this.controlSettings.nRows;
-    linesControl.innerHTML = `
-      <label for="nRows-slider">Number of lines: </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="nRows-slider" min="${nRowsRange.min}" max="${nRowsRange.max}" step="${nRowsRange.step}" value="${nRowsRange.value}" class="control-slider">
-          <input type="number" id="nRows-input" min="${nRowsRange.min}" max="${nRowsRange.max}" step="${nRowsRange.step}" value="${nRowsRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="nRows-lock" ${nRowsRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(linesControl);
-
-    // Link slider and input
-    const slider = linesControl.querySelector('#nRows-slider');
-    const input = linesControl.querySelector('#nRows-input');
-    const nRowsLock = linesControl.querySelector('#nRows-lock');
-    
-    slider.addEventListener('input', (e) => {
-      input.value = e.target.value;
-      this.controlSettings.nRows.value = parseInt(e.target.value);
-      this.updateSketch();
-      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
-    });
-    
-    input.addEventListener('input', (e) => {
-      slider.value = e.target.value;
-      this.controlSettings.nRows.value = parseInt(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    nRowsLock.addEventListener('change', (e) => {
-      this.controlSettings.nRows.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Line spacing control (affects font size)
-    const lineSpacingControl = document.createElement('li');
-    const lineSpacingRange = this.controlSettings.lineSpacing;
-    lineSpacingControl.innerHTML = `
-      <label for="lineSpacing-slider">Line spacing (font size): </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="lineSpacing-slider" min="${lineSpacingRange.min}" max="${lineSpacingRange.max}" step="${lineSpacingRange.step}" value="${lineSpacingRange.value}" class="control-slider">
-          <input type="number" id="lineSpacing-input" min="${lineSpacingRange.min}" max="${lineSpacingRange.max}" step="${lineSpacingRange.step}" value="${lineSpacingRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="lineSpacing-lock" ${lineSpacingRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(lineSpacingControl);
-
-    const lineSpacingSlider = lineSpacingControl.querySelector('#lineSpacing-slider');
-    const lineSpacingInput = lineSpacingControl.querySelector('#lineSpacing-input');
-    const lineSpacingLock = lineSpacingControl.querySelector('#lineSpacing-lock');
-    
-    lineSpacingSlider.addEventListener('input', (e) => {
-      lineSpacingInput.value = e.target.value;
-      this.controlSettings.lineSpacing.value = parseFloat(e.target.value);
-      this.updateSketch();
-      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
-    });
-    
-    lineSpacingInput.addEventListener('input', (e) => {
-      lineSpacingSlider.value = e.target.value;
-      this.controlSettings.lineSpacing.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    lineSpacingLock.addEventListener('change', (e) => {
-      this.controlSettings.lineSpacing.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Text pattern shifting control
-    const textPatternShiftControl = document.createElement('li');
-    
-    // Ensure options array exists (for backward compatibility)
-    if (!this.controlSettings.shiftTextPattern.options) {
-      this.controlSettings.shiftTextPattern.options = ['none', 'forward', 'backward', 'random'];
-    }
-    
-    textPatternShiftControl.innerHTML = `
-      <div class="control-row">
-        <div class="control-input-group">
-          <label for="shiftTextPattern-select">Shift text pattern:</label>
-          <select id="shiftTextPattern-select" class="control-select">
-            ${this.controlSettings.shiftTextPattern.options.map(option => 
-              `<option value="${option}" ${option === this.controlSettings.shiftTextPattern.value ? 'selected' : ''}>${option.charAt(0).toUpperCase() + option.slice(1)}</option>`
-            ).join('')}
-          </select>
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="shiftTextPattern-lock" ${this.controlSettings.shiftTextPattern.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    
-    console.log('Creating shiftTextPattern dropdown with value:', this.controlSettings.shiftTextPattern.value);
-    values.append(textPatternShiftControl);
-
-    const textPatternShiftSelect = textPatternShiftControl.querySelector('#shiftTextPattern-select');
-    const textPatternShiftLock = textPatternShiftControl.querySelector('#shiftTextPattern-lock');
-    
-    textPatternShiftSelect.addEventListener('change', (e) => {
-      this.controlSettings.shiftTextPattern.value = e.target.value;
-      this.updateSketch();
-      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
-    });
-
-    // Sync lock state with internal state
-    textPatternShiftLock.addEventListener('change', (e) => {
-      this.controlSettings.shiftTextPattern.locked = e.target.checked;
-      if (!this.isInitializing) this.saveSettings(); // Auto-save when lock state changes
-      this.updateLockAllCheckbox();
+    // Generate controls dynamically from controlSettings
+    Object.keys(this.controlSettings).forEach(key => {
+      const config = this.controlSettings[key];
+      let control;
+      
+      switch (config.type) {
+        case 'range':
+          control = this.createRangeControl(key, config);
+          break;
+        case 'select':
+          control = this.createSelectControl(key, config);
+          break;
+        case 'toggle':
+          control = this.createToggleControl(key, config);
+          break;
+        case 'color':
+          control = this.createColorControl(key, config);
+          break;
+        default:
+          console.warn(`Unknown control type: ${config.type} for ${key}`);
+          return;
+      }
+      
+      if (control) {
+        values.append(control);
+      }
     });
 
     // Lock/Unlock All control
@@ -717,9 +809,12 @@ class ArcSketch {
     lockAllControl.innerHTML = `
       <div class="control-row lock-all-control">
         <div class="control-input-group">
-          <label for="lockAll-checkbox">Lock all controls: </label>
-          <input type="checkbox" id="lockAll-checkbox" class="control-checkbox">
+          <label>Lock all controls</label>
         </div>
+        <label class="control-lock-container">
+          <span class="control-lock-icon">🔒</span>
+          <input type="checkbox" id="lockAll-checkbox" class="control-checkbox">
+        </label>
       </div>
     `;
     values.append(lockAllControl);
@@ -730,470 +825,11 @@ class ArcSketch {
       const shouldLockAll = e.target.checked;
       this.setAllLockStates(shouldLockAll);
       this.updateAllLockCheckboxes();
-      if (!this.isInitializing) this.saveSettings(); // Auto-save when lock states change
+      if (!this.isInitializing) this.saveSettings();
     });
 
     // Store reference for later updates
     this.lockAllCheckbox = lockAllCheckbox;
-
-    // Noise toggle control
-    const noiseToggleControl = document.createElement('li');
-    noiseToggleControl.innerHTML = `
-      <div class="control-row">
-        <div class="control-input-group">
-          <label for="useNoise-checkbox">Use noise: </label>
-          <input type="checkbox" id="useNoise-checkbox" ${this.controlSettings.useNoise.value ? 'checked' : ''}>
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="useNoise-lock" ${this.controlSettings.useNoise.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(noiseToggleControl);
-
-    const noiseCheckbox = noiseToggleControl.querySelector('#useNoise-checkbox');
-    const useNoiseLock = noiseToggleControl.querySelector('#useNoise-lock');
-    
-    noiseCheckbox.addEventListener('change', (e) => {
-      this.controlSettings.useNoise.value = e.target.checked;
-      if (this.controlSettings.useNoise.value && !this.noise) {
-        // Use the original noise seed for consistency
-        this.noise = new SimplexNoise(this.originalNoiseSeed);
-      }
-      this.updateSketch();
-      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
-    });
-
-    // Sync lock state with internal state
-    useNoiseLock.addEventListener('change', (e) => {
-      this.controlSettings.useNoise.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Angular noise control
-    const angularNoiseControl = document.createElement('li');
-    angularNoiseControl.innerHTML = `
-      <div class="control-row">
-        <div class="control-input-group">
-          <label for="angularNoise-checkbox">Angular noise: </label>
-          <input type="checkbox" id="angularNoise-checkbox" ${this.controlSettings.angularNoise.value ? 'checked' : ''}>
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="angularNoise-lock" ${this.controlSettings.angularNoise.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(angularNoiseControl);
-
-    const angularNoiseCheckbox = angularNoiseControl.querySelector('#angularNoise-checkbox');
-    const angularNoiseLock = angularNoiseControl.querySelector('#angularNoise-lock');
-    
-    angularNoiseCheckbox.addEventListener('change', (e) => {
-      this.controlSettings.angularNoise.value = e.target.checked;
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    angularNoiseLock.addEventListener('change', (e) => {
-      this.controlSettings.angularNoise.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Angular resolution control
-    const angularResolutionControl = document.createElement('li');
-    const angularResolutionRange = this.controlSettings.angularResolution;
-    angularResolutionControl.innerHTML = `
-      <label for="angularResolution-slider">Angular grid resolution (°): </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="angularResolution-slider" min="${angularResolutionRange.min}" max="${angularResolutionRange.max}" step="${angularResolutionRange.step}" value="${angularResolutionRange.value}" class="control-slider">
-          <input type="number" id="angularResolution-input" min="${angularResolutionRange.min}" max="${angularResolutionRange.max}" step="${angularResolutionRange.step}" value="${angularResolutionRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="angularResolution-lock" ${angularResolutionRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(angularResolutionControl);
-
-    const angularResolutionSlider = angularResolutionControl.querySelector('#angularResolution-slider');
-    const angularResolutionInput = angularResolutionControl.querySelector('#angularResolution-input');
-    const angularResolutionLock = angularResolutionControl.querySelector('#angularResolution-lock');
-    
-    angularResolutionSlider.addEventListener('input', (e) => {
-      angularResolutionInput.value = e.target.value;
-      this.controlSettings.angularResolution.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-    
-    angularResolutionInput.addEventListener('input', (e) => {
-      angularResolutionSlider.value = e.target.value;
-      this.controlSettings.angularResolution.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    angularResolutionLock.addEventListener('change', (e) => {
-      this.controlSettings.angularResolution.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Y-axis scale factor control
-    const yScaleFactorControl = document.createElement('li');
-    const yScaleFactorRange = this.controlSettings.yScaleFactor;
-    yScaleFactorControl.innerHTML = `
-      <label for="yScaleFactor-slider">Y-axis pattern scale: </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="yScaleFactor-slider" min="${yScaleFactorRange.min}" max="${yScaleFactorRange.max}" step="${yScaleFactorRange.step}" value="${yScaleFactorRange.value}" class="control-slider">
-          <input type="number" id="yScaleFactor-input" min="${yScaleFactorRange.min}" max="${yScaleFactorRange.max}" step="${yScaleFactorRange.step}" value="${yScaleFactorRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="yScaleFactor-lock" ${yScaleFactorRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(yScaleFactorControl);
-
-    const yScaleFactorSlider = yScaleFactorControl.querySelector('#yScaleFactor-slider');
-    const yScaleFactorInput = yScaleFactorControl.querySelector('#yScaleFactor-input');
-    const yScaleFactorLock = yScaleFactorControl.querySelector('#yScaleFactor-lock');
-    
-    yScaleFactorSlider.addEventListener('input', (e) => {
-      yScaleFactorInput.value = e.target.value;
-      this.controlSettings.yScaleFactor.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-    
-    yScaleFactorInput.addEventListener('input', (e) => {
-      yScaleFactorSlider.value = e.target.value;
-      this.controlSettings.yScaleFactor.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    yScaleFactorLock.addEventListener('change', (e) => {
-      this.controlSettings.yScaleFactor.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Inverse width mapping control
-    const inverseWidthMappingControl = document.createElement('li');
-    inverseWidthMappingControl.innerHTML = `
-      <div class="control-row">
-        <div class="control-input-group">
-          <label for="inverseWidthMapping-checkbox">Inverse width mapping: </label>
-          <input type="checkbox" id="inverseWidthMapping-checkbox" ${this.controlSettings.inverseWidthMapping.value ? 'checked' : ''}>
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="inverseWidthMapping-lock" ${this.controlSettings.inverseWidthMapping.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(inverseWidthMappingControl);
-
-    const inverseWidthMappingCheckbox = inverseWidthMappingControl.querySelector('#inverseWidthMapping-checkbox');
-    const inverseWidthMappingLock = inverseWidthMappingControl.querySelector('#inverseWidthMapping-lock');
-    
-    inverseWidthMappingCheckbox.addEventListener('change', (e) => {
-      this.controlSettings.inverseWidthMapping.value = e.target.checked;
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    inverseWidthMappingLock.addEventListener('change', (e) => {
-      this.controlSettings.inverseWidthMapping.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Noise scale control
-    const noiseScaleControl = document.createElement('li');
-    const noiseScaleRange = this.controlSettings.noiseScale;
-    noiseScaleControl.innerHTML = `
-      <label for="noiseScale-slider">Noise scale: </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="noiseScale-slider" min="${noiseScaleRange.min}" max="${noiseScaleRange.max}" step="${noiseScaleRange.step}" value="${noiseScaleRange.value}" class="control-slider">
-          <input type="number" id="noiseScale-input" min="${noiseScaleRange.min}" max="${noiseScaleRange.max}" step="${noiseScaleRange.step}" value="${noiseScaleRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="noiseScale-lock" ${noiseScaleRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(noiseScaleControl);
-
-    const noiseScaleSlider = noiseScaleControl.querySelector('#noiseScale-slider');
-    const noiseScaleInput = noiseScaleControl.querySelector('#noiseScale-input');
-    const noiseScaleLock = noiseScaleControl.querySelector('#noiseScale-lock');
-    
-    noiseScaleSlider.addEventListener('input', (e) => {
-      noiseScaleInput.value = e.target.value;
-      this.controlSettings.noiseScale.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-    
-    noiseScaleInput.addEventListener('input', (e) => {
-      noiseScaleSlider.value = e.target.value;
-      this.controlSettings.noiseScale.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    noiseScaleLock.addEventListener('change', (e) => {
-      this.controlSettings.noiseScale.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Noise octaves control
-    const noiseOctavesControl = document.createElement('li');
-    const noiseOctavesRange = this.controlSettings.noiseOctaves;
-    noiseOctavesControl.innerHTML = `
-      <label for="noiseOctaves-slider">Noise octaves: </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="noiseOctaves-slider" min="${noiseOctavesRange.min}" max="${noiseOctavesRange.max}" step="${noiseOctavesRange.step}" value="${noiseOctavesRange.value}" class="control-slider">
-          <input type="number" id="noiseOctaves-input" min="${noiseOctavesRange.min}" max="${noiseOctavesRange.max}" step="${noiseOctavesRange.step}" value="${noiseOctavesRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="noiseOctaves-lock" ${noiseOctavesRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(noiseOctavesControl);
-
-    const noiseOctavesSlider = noiseOctavesControl.querySelector('#noiseOctaves-slider');
-    const noiseOctavesInput = noiseOctavesControl.querySelector('#noiseOctaves-input');
-    const noiseOctavesLock = noiseOctavesControl.querySelector('#noiseOctaves-lock');
-    
-    noiseOctavesSlider.addEventListener('input', (e) => {
-      noiseOctavesInput.value = e.target.value;
-      this.controlSettings.noiseOctaves.value = parseInt(e.target.value);
-      this.updateSketch();
-    });
-    
-    noiseOctavesInput.addEventListener('input', (e) => {
-      noiseOctavesSlider.value = e.target.value;
-      this.controlSettings.noiseOctaves.value = parseInt(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    noiseOctavesLock.addEventListener('change', (e) => {
-      this.controlSettings.noiseOctaves.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Noise persistence control
-    const noisePersistenceControl = document.createElement('li');
-    const noisePersistenceRange = this.controlSettings.noisePersistence;
-    noisePersistenceControl.innerHTML = `
-      <label for="noisePersistence-slider">Noise persistence: </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="noisePersistence-slider" min="${noisePersistenceRange.min}" max="${noisePersistenceRange.max}" step="${noisePersistenceRange.step}" value="${noisePersistenceRange.value}" class="control-slider">
-          <input type="number" id="noisePersistence-input" min="${noisePersistenceRange.min}" max="${noisePersistenceRange.max}" step="${noisePersistenceRange.step}" value="${noisePersistenceRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="noisePersistence-lock" ${noisePersistenceRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(noisePersistenceControl);
-
-    const noisePersistenceSlider = noisePersistenceControl.querySelector('#noisePersistence-slider');
-    const noisePersistenceInput = noisePersistenceControl.querySelector('#noisePersistence-input');
-    const noisePersistenceLock = noisePersistenceControl.querySelector('#noisePersistence-lock');
-    
-    noisePersistenceSlider.addEventListener('input', (e) => {
-      noisePersistenceInput.value = e.target.value;
-      this.controlSettings.noisePersistence.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-    
-    noisePersistenceInput.addEventListener('input', (e) => {
-      noisePersistenceSlider.value = e.target.value;
-      this.controlSettings.noisePersistence.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    noisePersistenceLock.addEventListener('change', (e) => {
-      this.controlSettings.noisePersistence.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Noise contrast control
-    const noiseContrastControl = document.createElement('li');
-    const noiseContrastRange = this.controlSettings.noiseContrast;
-    noiseContrastControl.innerHTML = `
-      <label for="noiseContrast-slider">Noise contrast: </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="noiseContrast-slider" min="${noiseContrastRange.min}" max="${noiseContrastRange.max}" step="${noiseContrastRange.step}" value="${noiseContrastRange.value}" class="control-slider">
-          <input type="number" id="noiseContrast-input" min="${noiseContrastRange.min}" max="${noiseContrastRange.max}" step="${noiseContrastRange.step}" value="${noiseContrastRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="noiseContrast-lock" ${noiseContrastRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(noiseContrastControl);
-
-    const noiseContrastSlider = noiseContrastControl.querySelector('#noiseContrast-slider');
-    const noiseContrastInput = noiseContrastControl.querySelector('#noiseContrast-input');
-    const noiseContrastLock = noiseContrastControl.querySelector('#noiseContrast-lock');
-    
-    noiseContrastSlider.addEventListener('input', (e) => {
-      noiseContrastInput.value = e.target.value;
-      this.controlSettings.noiseContrast.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-    
-    noiseContrastInput.addEventListener('input', (e) => {
-      noiseContrastSlider.value = e.target.value;
-      this.controlSettings.noiseContrast.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    noiseContrastLock.addEventListener('change', (e) => {
-      this.controlSettings.noiseContrast.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-          // Noise lacunarity control
-    const noiseLacunarityControl = document.createElement('li');
-    const noiseLacunarityRange = this.controlSettings.noiseLacunarity;
-    noiseLacunarityControl.innerHTML = `
-      <label for="noiseLacunarity-slider">Noise lacunarity: </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="noiseLacunarity-slider" min="${noiseLacunarityRange.min}" max="${noiseLacunarityRange.max}" step="${noiseLacunarityRange.step}" value="${noiseLacunarityRange.value}" class="control-slider">
-          <input type="number" id="noiseLacunarity-input" min="${noiseLacunarityRange.min}" max="${noiseLacunarityRange.max}" step="${noiseLacunarityRange.step}" value="${noiseLacunarityRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="noiseLacunarity-lock" ${noiseLacunarityRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(noiseLacunarityControl);
-
-    const noiseLacunaritySlider = noiseLacunarityControl.querySelector('#noiseLacunarity-slider');
-    const noiseLacunarityInput = noiseLacunarityControl.querySelector('#noiseLacunarity-input');
-    const noiseLacunarityLock = noiseLacunarityControl.querySelector('#noiseLacunarity-lock');
-    
-    noiseLacunaritySlider.addEventListener('input', (e) => {
-      noiseLacunarityInput.value = e.target.value;
-      this.controlSettings.noiseLacunarity.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-    
-    noiseLacunarityInput.addEventListener('input', (e) => {
-      noiseLacunaritySlider.value = e.target.value;
-      this.controlSettings.noiseLacunarity.value = parseFloat(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    noiseLacunarityLock.addEventListener('change', (e) => {
-      this.controlSettings.noiseLacunarity.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Color controls
-
-    // Background color control
-    const backgroundColorControl = document.createElement('li');
-    backgroundColorControl.innerHTML = `
-      <label for="colBG-input">Background color: </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="color" id="colBG-input" value="${this.controlSettings.colBG.value}" class="control-color-input">
-          <input type="text" id="colBG-text" value="${this.controlSettings.colBG.value}" class="control-color-text">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="colBG-lock" ${this.controlSettings.colBG.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(backgroundColorControl);
-
-    const backgroundColorInput = backgroundColorControl.querySelector('#colBG-input');
-    const backgroundColorText = backgroundColorControl.querySelector('#colBG-text');
-    const backgroundColorLock = backgroundColorControl.querySelector('#colBG-lock');
-    
-    backgroundColorInput.addEventListener('input', (e) => {
-      backgroundColorText.value = e.target.value;
-      this.controlSettings.colBG.value = e.target.value;
-      this.updateSketch();
-      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
-    });
-    
-    backgroundColorText.addEventListener('input', (e) => {
-      backgroundColorInput.value = e.target.value;
-      this.controlSettings.colBG.value = e.target.value;
-      this.updateSketch();
-      this.saveSettings(); // Auto-save when value changes
-    });
-
-    // Sync lock state with internal state
-    backgroundColorLock.addEventListener('change', (e) => {
-      this.controlSettings.colBG.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
-
-    // Foreground color control
-    const foregroundColorControl = document.createElement('li');
-    foregroundColorControl.innerHTML = `
-      <label for="colFG-input">Text color: </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="color" id="colFG-input" value="${this.controlSettings.colFG.value}" class="control-color-input">
-          <input type="text" id="colFG-text" value="${this.controlSettings.colFG.value}" class="control-color-text">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="colFG-lock" ${this.controlSettings.colFG.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(foregroundColorControl);
-
-    const foregroundColorInput = foregroundColorControl.querySelector('#colFG-input');
-    const foregroundColorText = foregroundColorControl.querySelector('#colFG-text');
-    const foregroundColorLock = foregroundColorControl.querySelector('#colFG-lock');
-    
-    foregroundColorInput.addEventListener('input', (e) => {
-      foregroundColorText.value = e.target.value;
-      this.controlSettings.colFG.value = e.target.value;
-      this.updateSketch();
-      if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
-    });
-    
-    foregroundColorText.addEventListener('input', (e) => {
-      foregroundColorInput.value = e.target.value;
-      this.controlSettings.colFG.value = e.target.value;
-      this.updateSketch();
-      this.saveSettings(); // Auto-save when value changes
-    });
-
-    // Sync lock state with internal state
-    foregroundColorLock.addEventListener('change', (e) => {
-      this.controlSettings.colFG.locked = e.target.checked;
-      this.updateLockAllCheckbox();
-    });
 
     // Settings randomizer control
     const settingsRandomizerControl = document.createElement('li');
@@ -1202,210 +838,16 @@ class ArcSketch {
     `;
     values.append(settingsRandomizerControl);
 
-    const randomizeNoiseBtn = settingsRandomizerControl.querySelector('#randomize-settings-btn');
-    randomizeNoiseBtn.addEventListener('click', () => {
-      // Use the internal lock states instead of DOM queries
-      const nRowsLocked = this.controlSettings.nRows.locked;
-      const lineSpacingLocked = this.controlSettings.lineSpacing.locked;
-      const shiftTextPatternLocked = this.controlSettings.shiftTextPattern.locked;
-      const useNoiseLocked = this.controlSettings.useNoise.locked;
-      const angularNoiseLocked = this.controlSettings.angularNoise.locked;
-      const angularResolutionLocked = this.controlSettings.angularResolution.locked;
-      const yScaleFactorLocked = this.controlSettings.yScaleFactor.locked;
-      const inverseWidthMappingLocked = this.controlSettings.inverseWidthMapping.locked;
-      const noiseScaleLocked = this.controlSettings.noiseScale.locked;
-      const noiseOctavesLocked = this.controlSettings.noiseOctaves.locked;
-      const noisePersistenceLocked = this.controlSettings.noisePersistence.locked;
-      const noiseContrastLocked = this.controlSettings.noiseContrast.locked;
-      const noiseLacunarityLocked = this.controlSettings.noiseLacunarity.locked;
-      const colBGLocked = this.controlSettings.colBG.locked;
-      const colFGLocked = this.controlSettings.colFG.locked;
-      
-      // Generate random values only for unlocked parameters
-      if (!nRowsLocked) {
-        const range = this.controlSettings.nRows;
-        this.controlSettings.nRows.value = rndInt(range.min, range.max);
-      }
-      
-      if (!lineSpacingLocked) {
-        const range = this.controlSettings.lineSpacing;
-        this.controlSettings.lineSpacing.value = rndInt(range.min * 10, range.max * 10) / 10;
-      }
-      
-      if (!shiftTextPatternLocked) {
-        // Ensure options array exists
-        if (!this.controlSettings.shiftTextPattern.options) {
-          this.controlSettings.shiftTextPattern.options = ['none', 'forward', 'backward', 'random'];
-        }
-        this.controlSettings.shiftTextPattern.value = this.controlSettings.shiftTextPattern.options[rndInt(0, this.controlSettings.shiftTextPattern.options.length - 1)];
-      }
-      
-      if (!useNoiseLocked) {
-        this.controlSettings.useNoise.value = Math.random() > 0.2; // 80% chance to use noise
-      }
-      
-      if (!angularNoiseLocked) {
-        this.controlSettings.angularNoise.value = Math.random() > 0.5; // 50% chance to use angular noise
-      }
-      
-      if (!angularResolutionLocked) {
-        const range = this.controlSettings.angularResolution;
-        this.controlSettings.angularResolution.value = rndInt(range.min * 10, range.max * 10) / 10;
-      }
-      
-      if (!yScaleFactorLocked) {
-        const range = this.controlSettings.yScaleFactor;
-        this.controlSettings.yScaleFactor.value = rndInt(range.min * 10, range.max * 10) / 10;
-      }
-      
-      if (!inverseWidthMappingLocked) {
-        this.controlSettings.inverseWidthMapping.value = Math.random() > 0.5; // 50% chance to inverse width mapping
-      }
-      
-      if (!noiseScaleLocked) {
-        const range = this.controlSettings.noiseScale;
-        this.controlSettings.noiseScale.value = rndInt(range.min * 1000, range.max * 1000) / 1000;
-      }
-      
-      if (!noiseOctavesLocked) {
-        const range = this.controlSettings.noiseOctaves;
-        this.controlSettings.noiseOctaves.value = rndInt(range.min, range.max);
-      }
-      
-      if (!noisePersistenceLocked) {
-        const range = this.controlSettings.noisePersistence;
-        this.controlSettings.noisePersistence.value = rndInt(range.min * 10, range.max * 10) / 10;
-      }
-      
-      if (!noiseContrastLocked) {
-        const range = this.controlSettings.noiseContrast;
-        this.controlSettings.noiseContrast.value = rndInt(range.min * 10, range.max * 10) / 10;
-      }
-      
-      if (!noiseLacunarityLocked) {
-        const range = this.controlSettings.noiseLacunarity;
-        this.controlSettings.noiseLacunarity.value = rndInt(range.min * 10, range.max * 10) / 10;
-      }
-      
-      // Generate random colors
-      if (!colBGLocked) {
-        // Generate random dark color for background
-        const r = rndInt(0, 80);  // Keep it dark
-        const g = rndInt(0, 80);
-        const b = rndInt(0, 80);
-        this.controlSettings.colBG.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-      }
-      
-      if (!colFGLocked) {
-        // Generate random light color for foreground
-        const r = rndInt(180, 255);  // Keep it light
-        const g = rndInt(180, 255);
-        const b = rndInt(180, 255);
-        this.controlSettings.colFG.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-      }
-      
-      // Update all the control inputs to reflect new values
-      if (!nRowsLocked) {
-        slider.value = this.controlSettings.nRows.value;
-        input.value = this.controlSettings.nRows.value;
-      }
-      
-      if (!lineSpacingLocked) {
-        lineSpacingSlider.value = this.controlSettings.lineSpacing.value;
-        lineSpacingInput.value = this.controlSettings.lineSpacing.value;
-      }
-      
-      if (!shiftTextPatternLocked) {
-        textPatternShiftSelect.value = this.controlSettings.shiftTextPattern.value;
-      }
-      
-      if (!useNoiseLocked) {
-        noiseCheckbox.checked = this.controlSettings.useNoise.value;
-      }
-      
-      if (!angularNoiseLocked) {
-        const angularNoiseCheckbox = document.getElementById('angularNoise-checkbox');
-        if (angularNoiseCheckbox) {
-          angularNoiseCheckbox.checked = this.controlSettings.angularNoise.value;
-        }
-      }
-      
-      if (!angularResolutionLocked) {
-        const angularResolutionSlider = document.getElementById('angularResolution-slider');
-        const angularResolutionInput = document.getElementById('angularResolution-input');
-        if (angularResolutionSlider && angularResolutionInput) {
-          angularResolutionSlider.value = this.controlSettings.angularResolution.value;
-          angularResolutionInput.value = this.controlSettings.angularResolution.value;
-        }
-      }
-      
-      if (!yScaleFactorLocked) {
-        const yScaleFactorSlider = document.getElementById('yScaleFactor-slider');
-        const yScaleFactorInput = document.getElementById('yScaleFactor-input');
-        if (yScaleFactorSlider && yScaleFactorInput) {
-          yScaleFactorSlider.value = this.controlSettings.yScaleFactor.value;
-          yScaleFactorInput.value = this.controlSettings.yScaleFactor.value;
-        }
-      }
-      
-      if (!inverseWidthMappingLocked) {
-        const inverseWidthMappingCheckbox = document.getElementById('inverseWidthMapping-checkbox');
-        if (inverseWidthMappingCheckbox) {
-          inverseWidthMappingCheckbox.checked = this.controlSettings.inverseWidthMapping.value;
-        }
-      }
-      
-      if (!noiseScaleLocked) {
-        noiseScaleSlider.value = this.controlSettings.noiseScale.value;
-        noiseScaleInput.value = this.controlSettings.noiseScale.value;
-      }
-      
-      if (!noiseOctavesLocked) {
-        noiseOctavesSlider.value = this.controlSettings.noiseOctaves.value;
-        noiseOctavesInput.value = this.controlSettings.noiseOctaves.value;
-      }
-      
-      if (!noisePersistenceLocked) {
-        noisePersistenceSlider.value = this.controlSettings.noisePersistence.value;
-        noisePersistenceInput.value = this.controlSettings.noisePersistence.value;
-      }
-      
-      if (!noiseContrastLocked) {
-        noiseContrastSlider.value = this.controlSettings.noiseContrast.value;
-        noiseContrastInput.value = this.controlSettings.noiseContrast.value;
-      }
-      
-      if (!noiseLacunarityLocked) {
-        noiseLacunaritySlider.value = this.controlSettings.noiseLacunarity.value;
-        noiseLacunarityInput.value = this.controlSettings.noiseLacunarity.value;
-      }
-      
-      // Update color controls
-      if (!colBGLocked) {
-        const backgroundColorInput = document.getElementById('colBG-input');
-        const backgroundColorText = document.getElementById('colBG-text');
-        if (backgroundColorInput && backgroundColorText) {
-          backgroundColorInput.value = this.controlSettings.colBG.value;
-          backgroundColorText.value = this.controlSettings.colBG.value;
-        }
-      }
-      
-      if (!colFGLocked) {
-        const foregroundColorInput = document.getElementById('colFG-input');
-        const foregroundColorText = document.getElementById('colFG-text');
-        if (foregroundColorInput && foregroundColorText) {
-          foregroundColorInput.value = this.controlSettings.colFG.value;
-          foregroundColorText.value = this.controlSettings.colFG.value;
-        }
-      }
-      
-      // Update sketch with new noise settings
+    const randomizeBtn = settingsRandomizerControl.querySelector('#randomize-settings-btn');
+    randomizeBtn.addEventListener('click', () => {
+      this.randomizeSettings();
+      this.updateControlsFromSettings(); // Update UI without touching lock states
       this.updateSketch();
       
       // Show feedback
-      randomizeNoiseBtn.textContent = 'Randomized!';
+      randomizeBtn.textContent = 'Randomized!';
       setTimeout(() => {
-        randomizeNoiseBtn.textContent = 'Randomize Settings';
+        randomizeBtn.textContent = 'Randomize Settings';
       }, 1000);
     });
 
@@ -1771,192 +1213,68 @@ class ArcSketch {
     // It updates all control inputs to reflect the current settings
     if (!this.controlSettings) return;
     
-    // Update number of lines controls
-    const nRowsSlider = document.getElementById('nRows-slider');
-    const nRowsInput = document.getElementById('nRows-input');
-    if (nRowsSlider && nRowsInput) {
-      nRowsSlider.value = this.controlSettings.nRows.value;
-      nRowsInput.value = this.controlSettings.nRows.value;
-    }
-    
-    // Update line spacing controls
-    const lineSpacingSlider = document.getElementById('lineSpacing-slider');
-    const lineSpacingInput = document.getElementById('lineSpacing-input');
-    if (lineSpacingSlider && lineSpacingInput) {
-      lineSpacingSlider.value = this.controlSettings.lineSpacing.value;
-      lineSpacingInput.value = this.controlSettings.lineSpacing.value;
-    }
-    
-    // Update text pattern shift toggle
-    const textPatternShiftSelect = document.getElementById('shiftTextPattern-select');
-    if (textPatternShiftSelect) {
-      textPatternShiftSelect.value = this.controlSettings.shiftTextPattern.value;
-    }
-    
-    // Update noise toggle
-    const noiseCheckbox = document.getElementById('useNoise-checkbox');
-    if (noiseCheckbox) {
-      noiseCheckbox.checked = this.controlSettings.useNoise.value;
-    }
-    
-    // Update angular noise toggle
-    const angularNoiseCheckbox = document.getElementById('angularNoise-checkbox');
-    if (angularNoiseCheckbox) {
-      angularNoiseCheckbox.checked = this.controlSettings.angularNoise.value;
-    }
-    
-    // Update angular resolution controls
-    const angularResolutionSlider = document.getElementById('angularResolution-slider');
-    const angularResolutionInput = document.getElementById('angularResolution-input');
-    if (angularResolutionSlider && angularResolutionInput) {
-      angularResolutionSlider.value = this.controlSettings.angularResolution.value;
-      angularResolutionInput.value = this.controlSettings.angularResolution.value;
-    }
-    
-    // Update Y-scale factor controls
-    const yScaleFactorSlider = document.getElementById('yScaleFactor-slider');
-    const yScaleFactorInput = document.getElementById('yScaleFactor-input');
-    if (yScaleFactorSlider && yScaleFactorInput) {
-      yScaleFactorSlider.value = this.controlSettings.yScaleFactor.value;
-      yScaleFactorInput.value = this.controlSettings.yScaleFactor.value;
-    }
-    
-    // Update inverse width mapping toggle
-    const inverseWidthMappingCheckbox = document.getElementById('inverseWidthMapping-checkbox');
-    if (inverseWidthMappingCheckbox) {
-      inverseWidthMappingCheckbox.checked = this.controlSettings.inverseWidthMapping.value;
-    }
-    
-    // Update noise scale controls
-    const noiseScaleSlider = document.getElementById('noiseScale-slider');
-    const noiseScaleInput = document.getElementById('noiseScale-input');
-    if (noiseScaleSlider && noiseScaleInput) {
-      noiseScaleSlider.value = this.controlSettings.noiseScale.value;
-      noiseScaleInput.value = this.controlSettings.noiseScale.value;
-    }
-    
-    // Update noise octaves controls
-    const noiseOctavesSlider = document.getElementById('noiseOctaves-slider');
-    const noiseOctavesInput = document.getElementById('noiseOctaves-input');
-    if (noiseOctavesSlider && noiseOctavesInput) {
-      noiseOctavesSlider.value = this.controlSettings.noiseOctaves.value;
-      noiseOctavesInput.value = this.controlSettings.noiseOctaves.value;
-    }
-    
-    // Update noise persistence controls
-    const noisePersistenceSlider = document.getElementById('noisePersistence-slider');
-    const noisePersistenceInput = document.getElementById('noisePersistence-input');
-    if (noisePersistenceSlider && noisePersistenceInput) {
-      noisePersistenceSlider.value = this.controlSettings.noisePersistence.value;
-      noisePersistenceInput.value = this.controlSettings.noisePersistence.value;
-    }
-    
-    // Update noise contrast controls
-    const noiseContrastSlider = document.getElementById('noiseContrast-slider');
-    const noiseContrastInput = document.getElementById('noiseContrast-input');
-    if (noiseContrastSlider && noiseContrastInput) {
-      noiseContrastSlider.value = this.controlSettings.noiseContrast.value;
-      noiseContrastInput.value = this.controlSettings.noiseContrast.value;
-    }
-    
-    // Update noise lacunarity controls
-    const noiseLacunaritySlider = document.getElementById('noiseLacunarity-slider');
-    const noiseLacunarityInput = document.getElementById('noiseLacunarity-input');
-    if (noiseLacunaritySlider && noiseLacunarityInput) {
-      noiseLacunaritySlider.value = this.controlSettings.noiseLacunarity.value;
-      noiseLacunarityInput.value = this.controlSettings.noiseLacunarity.value;
-    }
-
-    // Update color controls
-    const backgroundColorInput = document.getElementById('colBG-input');
-    const backgroundColorText = document.getElementById('colBG-text');
-    if (backgroundColorInput && backgroundColorText) {
-      backgroundColorInput.value = this.controlSettings.colBG.value;
-      backgroundColorText.value = this.controlSettings.colBG.value;
-    }
-
-    const foregroundColorInput = document.getElementById('colFG-input');
-    const foregroundColorText = document.getElementById('colFG-text');
-    if (foregroundColorInput && foregroundColorText) {
-      foregroundColorInput.value = this.controlSettings.colFG.value;
-      foregroundColorText.value = this.controlSettings.colFG.value;
-    }
+    // Data-driven approach - update all controls based on their type
+    Object.keys(this.controlSettings).forEach(key => {
+      const config = this.controlSettings[key];
+      
+      switch (config.type) {
+        case 'range':
+          const slider = document.getElementById(`${key}-slider`);
+          const input = document.getElementById(`${key}-input`);
+          if (slider && input) {
+            slider.value = config.value;
+            input.value = config.value;
+          }
+          break;
+          
+        case 'select':
+          const select = document.getElementById(`${key}-select`);
+          if (select) {
+            select.value = config.value;
+          }
+          break;
+          
+        case 'toggle':
+          const checkbox = document.getElementById(`${key}-checkbox`);
+          if (checkbox) {
+            checkbox.checked = config.value;
+          }
+          break;
+          
+        case 'color':
+          const colorInput = document.getElementById(`${key}-input`);
+          const colorText = document.getElementById(`${key}-text`);
+          if (colorInput && colorText) {
+            colorInput.value = config.value;
+            colorText.value = config.value;
+          }
+          break;
+      }
+    });
     
     // Restore lock states - either from parameter or from internal state
     let lockStates = locks;
     
     if (!lockStates) {
       // Use internal lock states if not provided as parameter
-      lockStates = {
-        nRows: this.controlSettings.nRows.locked,
-        lineSpacing: this.controlSettings.lineSpacing.locked,
-        shiftTextPattern: this.controlSettings.shiftTextPattern.locked,
-        useNoise: this.controlSettings.useNoise.locked,
-        angularNoise: this.controlSettings.angularNoise.locked,
-        angularResolution: this.controlSettings.angularResolution.locked,
-        yScaleFactor: this.controlSettings.yScaleFactor.locked,
-        inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
-        noiseScale: this.controlSettings.noiseScale.locked,
-        noiseOctaves: this.controlSettings.noiseOctaves.locked,
-        noisePersistence: this.controlSettings.noisePersistence.locked,
-        noiseContrast: this.controlSettings.noiseContrast.locked,
-        noiseLacunarity: this.controlSettings.noiseLacunarity.locked,
-        colBG: this.controlSettings.colBG.locked,
-        colFG: this.controlSettings.colFG.locked
-      };
+      lockStates = {};
+      Object.keys(this.controlSettings).forEach(key => {
+        lockStates[key] = this.controlSettings[key].locked;
+      });
     }
     
-    // Apply lock states if available
-    if (lockStates) {
-      const nRowsLock = document.getElementById('nRows-lock');
-      const lineSpacingLock = document.getElementById('lineSpacing-lock');
-      const shiftTextPatternLock = document.getElementById('shiftTextPattern-lock');
-      const useNoiseLock = document.getElementById('useNoise-lock');
-      const angularNoiseLock = document.getElementById('angularNoise-lock');
-      const angularResolutionLock = document.getElementById('angularResolution-lock');
-      const yScaleFactorLock = document.getElementById('yScaleFactor-lock');
-      const inverseWidthMappingLock = document.getElementById('inverseWidthMapping-lock');
-      const noiseScaleLock = document.getElementById('noiseScale-lock');
-      const noiseOctavesLock = document.getElementById('noiseOctaves-lock');
-      const noisePersistenceLock = document.getElementById('noisePersistence-lock');
-      const noiseContrastLock = document.getElementById('noiseContrast-lock');
-      const noiseLacunarityLock = document.getElementById('noiseLacunarity-lock');
-      const colBGLock = document.getElementById('colBG-lock');
-      const colFGLock = document.getElementById('colFG-lock');
-      
-      if (nRowsLock) nRowsLock.checked = lockStates.nRows || false;
-      if (lineSpacingLock) lineSpacingLock.checked = lockStates.lineSpacing || false;
-      if (shiftTextPatternLock) shiftTextPatternLock.checked = lockStates.shiftTextPattern || false;
-      if (useNoiseLock) useNoiseLock.checked = lockStates.useNoise || false;
-      if (angularNoiseLock) angularNoiseLock.checked = lockStates.angularNoise || false;
-      if (angularResolutionLock) angularResolutionLock.checked = lockStates.angularResolution || false;
-      if (yScaleFactorLock) yScaleFactorLock.checked = lockStates.yScaleFactor || false;
-      if (inverseWidthMappingLock) inverseWidthMappingLock.checked = lockStates.inverseWidthMapping || false;
-      if (noiseScaleLock) noiseScaleLock.checked = lockStates.noiseScale || false;
-      if (noiseOctavesLock) noiseOctavesLock.checked = lockStates.noiseOctaves || false;
-      if (noisePersistenceLock) noisePersistenceLock.checked = lockStates.noisePersistence || false;
-      if (noiseContrastLock) noiseContrastLock.checked = lockStates.noiseContrast || false;
-      if (noiseLacunarityLock) noiseLacunarityLock.checked = lockStates.noiseLacunarity || false;
-      if (colBGLock) colBGLock.checked = lockStates.colBG || false;
-      if (colFGLock) colFGLock.checked = lockStates.colFG || false;
-      
-      // Update internal state to match
-      this.controlSettings.nRows.locked = lockStates.nRows || false;
-      this.controlSettings.lineSpacing.locked = lockStates.lineSpacing || false;
-      this.controlSettings.shiftTextPattern.locked = lockStates.shiftTextPattern || false;
-      this.controlSettings.useNoise.locked = lockStates.useNoise || false;
-      this.controlSettings.angularNoise.locked = lockStates.angularNoise || false;
-      this.controlSettings.angularResolution.locked = lockStates.angularResolution || false;
-      this.controlSettings.yScaleFactor.locked = lockStates.yScaleFactor || false;
-      this.controlSettings.inverseWidthMapping.locked = lockStates.inverseWidthMapping || false;
-      this.controlSettings.noiseScale.locked = lockStates.noiseScale || false;
-      this.controlSettings.noiseOctaves.locked = lockStates.noiseOctaves || false;
-      this.controlSettings.noisePersistence.locked = lockStates.noisePersistence || false;
-      this.controlSettings.noiseContrast.locked = lockStates.noiseContrast || false;
-      this.controlSettings.noiseLacunarity.locked = lockStates.noiseLacunarity || false;
-      this.controlSettings.colBG.locked = lockStates.colBG || false;
-      this.controlSettings.colFG.locked = lockStates.colFG || false;
-    }
+          // Apply lock states if available - data-driven approach
+      if (lockStates) {
+        Object.keys(this.controlSettings).forEach(key => {
+          const lockCheckbox = document.getElementById(`${key}-lock`);
+          if (lockCheckbox) {
+            lockCheckbox.checked = lockStates[key] || false;
+          }
+          
+          // Update internal state to match
+          this.controlSettings[key].locked = lockStates[key] || false;
+        });
+      }
     
     // Update the lock-all checkbox to reflect the current state
     this.updateLockAllCheckbox();
@@ -1971,46 +1289,11 @@ class ArcSketch {
 
   updateAllLockCheckboxes() {
     // Update all lock checkboxes in the UI to match the current lock states
-    const lockIds = [
-      'nRows-lock',
-      'lineSpacing-lock',
-      'shiftTextPattern-lock',
-      'useNoise-lock',
-      'angularNoise-lock',
-      'angularResolution-lock',
-      'yScaleFactor-lock',
-      'inverseWidthMapping-lock',
-      'noiseScale-lock',
-      'noiseOctaves-lock',
-      'noisePersistence-lock',
-      'noiseContrast-lock',
-      'noiseLacunarity-lock',
-      'colBG-lock',
-      'colFG-lock'
-    ];
-
-    const controlKeys = [
-      'nRows',
-      'lineSpacing',
-      'shiftTextPattern',
-      'useNoise',
-      'angularNoise',
-      'angularResolution',
-      'yScaleFactor',
-      'inverseWidthMapping',
-      'noiseScale',
-      'noiseOctaves',
-      'noisePersistence',
-      'noiseContrast',
-      'noiseLacunarity',
-      'colBG',
-      'colFG'
-    ];
-
-    lockIds.forEach((lockId, index) => {
-      const lockCheckbox = document.getElementById(lockId);
+    // Data-driven approach - no hardcoded lists needed!
+    Object.keys(this.controlSettings).forEach(key => {
+      const lockCheckbox = document.getElementById(`${key}-lock`);
       if (lockCheckbox) {
-        lockCheckbox.checked = this.controlSettings[controlKeys[index]].locked;
+        lockCheckbox.checked = this.controlSettings[key].locked;
       }
     });
   }
@@ -2032,5 +1315,96 @@ class ArcSketch {
     
     // Set indeterminate state if some but not all are locked
     this.lockAllCheckbox.indeterminate = someLocked && !allLocked;
+  }
+
+  randomizeSettings() {
+    // Generate random values only for unlocked parameters
+    Object.keys(this.controlSettings).forEach(key => {
+      const config = this.controlSettings[key];
+      if (config.locked) return; // Skip locked controls
+      
+      switch (config.type) {
+        case 'range':
+          // Generate random value within range
+          const multiplier = config.step < 1 ? (1 / config.step) : 1;
+          const randomValue = rndInt(config.min * multiplier, config.max * multiplier) / multiplier;
+          config.value = randomValue;
+          break;
+          
+        case 'select':
+          // Pick random option
+          if (config.options && config.options.length > 0) {
+            config.value = config.options[rndInt(0, config.options.length - 1)];
+          }
+          break;
+          
+        case 'toggle':
+          // Random boolean with some special logic
+          if (key === 'useNoise') {
+            config.value = Math.random() > 0.2; // 80% chance to use noise
+          } else {
+            config.value = Math.random() > 0.5; // 50% chance for other toggles
+          }
+          break;
+          
+        case 'color':
+          // Generate random colors with some constraints
+          if (key === 'colBG') {
+            // Generate random dark color for background
+            const r = rndInt(0, 80);
+            const g = rndInt(0, 80);
+            const b = rndInt(0, 80);
+            config.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+          } else if (key === 'colFG') {
+            // Generate random light color for foreground
+            const r = rndInt(180, 255);
+            const g = rndInt(180, 255);
+            const b = rndInt(180, 255);
+            config.value = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+          }
+          break;
+      }
+    });
+  }
+
+  updateControlsFromSettings() {
+    // Update UI controls to match current settings values (without touching lock states)
+    Object.keys(this.controlSettings).forEach(key => {
+      const config = this.controlSettings[key];
+      
+      switch (config.type) {
+        case 'range':
+          const slider = document.getElementById(`${key}-slider`);
+          const input = document.getElementById(`${key}-input`);
+          if (slider && input) {
+            slider.value = config.value;
+            input.value = config.value;
+          }
+          break;
+          
+        case 'select':
+          const select = document.getElementById(`${key}-select`);
+          if (select) {
+            select.value = config.value;
+          }
+          break;
+          
+        case 'toggle':
+          const checkbox = document.getElementById(`${key}-checkbox`);
+          if (checkbox) {
+            checkbox.checked = config.value;
+          }
+          break;
+          
+        case 'color':
+          const colorInput = document.getElementById(`${key}-input`);
+          const colorText = document.getElementById(`${key}-text`);
+          if (colorInput && colorText) {
+            colorInput.value = config.value;
+            colorText.value = config.value;
+          }
+          break;
+      }
+    });
   }
 } 
