@@ -117,19 +117,6 @@ class ArcSketch {
         value: 'forward',
         locked: true
       },
-      useBlanks: {
-        default: false,
-        value: false,
-        locked: true
-      },
-      blanksProb: {
-        min: 10,
-        max: 90,
-        step: 5,
-        default: 50,
-        value: 50,
-        locked: true
-      },
       
       // Noise controls
       useNoise: {
@@ -139,23 +126,23 @@ class ArcSketch {
       },
       angularNoise: {
         default: false,
-        value: false,
+        value: true,
         locked: true
       },
       angularResolution: {
         min: 0.05,
         max: 0.9,
         step: 0.05,
-        default: 0.6,
-        value: 0.6,
+        default: 0.15,
+        value: 0.15,
         locked: true
       },
       yScaleFactor: {
-        min: 0.1,
-        max: 30.0,
-        step: 0.1,
-        default: 0.8,
-        value: 0.8,
+        min: 0.05,
+        max: 5.0,
+        step: 0.05,
+        default: 0.5,
+        value: 0.5,
         locked: true
       },
       inverseWidthMapping: {
@@ -217,6 +204,9 @@ class ArcSketch {
       }
     };
 
+    // Store original default settings before any modifications
+    this.originalControlSettings = JSON.parse(JSON.stringify(this.controlSettings));
+    
     // Load saved settings if available
     this.loadSettings();
     
@@ -226,8 +216,8 @@ class ArcSketch {
     // Initialize noise generator using the main seed system
     if (this.controlSettings.useNoise.value) {
       // Use the main seed for noise consistency
-      const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
-      this.noise = new SimplexNoise(noiseSeed);
+      this.originalNoiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
+      this.noise = new SimplexNoise(this.originalNoiseSeed);
     }
 
     // Calculate font size dynamically based on number of rows
@@ -291,7 +281,6 @@ class ArcSketch {
   createFilter() {
     this.fSet = {
       rows: this.controlSettings.nRows.value,
-      blnkProb: this.controlSettings.blanksProb.value,
       seed: Math.round(rnd() * 100),
       freqX: Math.round((rndInt(40, 100) / 10000) * 100000) / 100000,
       freqY: Math.round((rndInt(40, 100) / 10000) * 100000) / 100000,
@@ -462,9 +451,9 @@ class ArcSketch {
       const charsPerLLAL = txt.length;
       const avgLLALWidth = avgCharWidth * charsPerLLAL;
       
-      // Calculate repetitions with some extra to ensure full coverage
+      // Calculate repetitions with generous extra to ensure full coverage
       const baseRepetitions = Math.ceil(arcLength / avgLLALWidth);
-      const repetitions = Math.max(baseRepetitions, 3); // Minimum 3 repetitions
+      const repetitions = Math.max(baseRepetitions * 1.5, 12); // Minimum 12 repetitions, 50% safety margin
       
       // Create the full line of repeating text
       let fullText = '';
@@ -523,20 +512,22 @@ class ArcSketch {
             let noiseX, noiseY;
             
             if (this.controlSettings.angularNoise.value) {
-              // Angular-based sampling for stable "islands" pattern
-              // Create a fixed angular grid independent of character count
-              const totalArcAngle = Math.abs(arcEnd - arcStart); // in degrees
+              // Center-based angular sampling using arc geometry
+              // Calculate the actual angular position for this character relative to arc center
+              const totalArcAngle = Math.abs(arcEnd - arcStart); // total arc span in degrees
+              const midAngle = (arcStart + arcEnd) / 2; // center angle of the arc
+              
+              // Character's angular position relative to arc center (0 at center, negative/positive at edges)
+              const charRelativeAngle = (i / fullText.length) * totalArcAngle - (totalArcAngle / 2);
+              
+              // Create angular grid centered around the arc middle
               const angularResolution = this.controlSettings.angularResolution.value; // degrees per grid cell
-              const numGridCells = Math.floor(totalArcAngle / angularResolution);
+              const angularGridIndex = Math.floor(charRelativeAngle / angularResolution);
               
-              // Map character to nearest grid cell
-              const relativePosition = i / fullText.length; // 0 to 1 along current row
-              const gridIndex = Math.floor(relativePosition * numGridCells);
-              
-              // Use fixed grid position for stable vertical columns
-              // Scale Y-axis to match X-axis frequency for balanced pattern changes
-              noiseX = gridIndex * this.controlSettings.noiseScale.value * frequency * 2;
-              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency * 2 * this.controlSettings.yScaleFactor.value;
+              // Use polar-like coordinates: angular position and consistent row-based Y
+              // This creates concentric patterns that follow the arc's natural geometry
+              noiseX = angularGridIndex * this.controlSettings.noiseScale.value * frequency;
+              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
             } else {
               // Use character index directly (creates skewed pattern)
               noiseX = i * this.controlSettings.noiseScale.value * frequency;
@@ -576,11 +567,6 @@ class ArcSketch {
         
         // Set the width variation using CSS class
         span.setAttribute('class', `st0 width-${width}`);
-        
-        // Apply transparent fill if useBlanks is enabled
-        if (this.controlSettings.useBlanks.value && Math.random() * 100 < this.controlSettings.blanksProb.value) {
-          span.setAttribute('style', 'fill: transparent;');
-        }
         
         span.textContent = fullText[i];
         textPath.appendChild(span);
@@ -723,74 +709,7 @@ class ArcSketch {
       if (!this.isInitializing) this.saveSettings(); // Auto-save when lock state changes
     });
 
-    // Use blanks control
-    const useBlanksControl = document.createElement('li');
-    useBlanksControl.innerHTML = `
-      <div class="control-row">
-        <div class="control-input-group">
-          <label for="useBlanks-checkbox">Use blanks: </label>
-          <input type="checkbox" id="useBlanks-checkbox" ${this.controlSettings.useBlanks.value ? 'checked' : ''}>
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="useBlanks-lock" ${this.controlSettings.useBlanks.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(useBlanksControl);
 
-    const useBlanksCheckbox = useBlanksControl.querySelector('#useBlanks-checkbox');
-    const useBlanksLock = useBlanksControl.querySelector('#useBlanks-lock');
-    
-    useBlanksCheckbox.addEventListener('change', (e) => {
-      this.controlSettings.useBlanks.value = e.target.checked;
-      this.updateSketch();
-      this.saveSettings(); // Auto-save when value changes
-    });
-
-    // Sync lock state with internal state
-    useBlanksLock.addEventListener('change', (e) => {
-      this.controlSettings.useBlanks.locked = e.target.checked;
-    });
-
-    // Blanks probability control
-    const blanksProbControl = document.createElement('li');
-    const blanksProbRange = this.controlSettings.blanksProb;
-    blanksProbControl.innerHTML = `
-      <label for="blanksProb-slider">Blanks probability (%): </label>
-      <div class="control-row">
-        <div class="control-input-group">
-          <input type="range" id="blanksProb-slider" min="${blanksProbRange.min}" max="${blanksProbRange.max}" step="${blanksProbRange.step}" value="${blanksProbRange.value}" class="control-slider">
-          <input type="number" id="blanksProb-input" min="${blanksProbRange.min}" max="${blanksProbRange.max}" step="${blanksProbRange.step}" value="${blanksProbRange.value}" class="control-number">
-        </div>
-        <label class="control-lock-container">
-          <span class="control-lock-icon">🔒</span>
-          <input type="checkbox" id="blanksProb-lock" ${blanksProbRange.locked ? 'checked' : ''} class="control-checkbox">
-        </label>
-      </div>
-    `;
-    values.append(blanksProbControl);
-
-    const blanksProbSlider = blanksProbControl.querySelector('#blanksProb-slider');
-    const blanksProbInput = blanksProbControl.querySelector('#blanksProb-input');
-    const blanksProbLock = blanksProbControl.querySelector('#blanksProb-lock');
-    
-    blanksProbSlider.addEventListener('input', (e) => {
-      blanksProbInput.value = e.target.value;
-      this.controlSettings.blanksProb.value = parseInt(e.target.value);
-      this.updateSketch();
-    });
-    
-    blanksProbInput.addEventListener('input', (e) => {
-      blanksProbSlider.value = e.target.value;
-      this.controlSettings.blanksProb.value = parseInt(e.target.value);
-      this.updateSketch();
-    });
-
-    // Sync lock state with internal state
-    blanksProbLock.addEventListener('change', (e) => {
-      this.controlSettings.blanksProb.locked = e.target.checked;
-    });
 
     // Noise toggle control
     const noiseToggleControl = document.createElement('li');
@@ -814,9 +733,8 @@ class ArcSketch {
     noiseCheckbox.addEventListener('change', (e) => {
       this.controlSettings.useNoise.value = e.target.checked;
       if (this.controlSettings.useNoise.value && !this.noise) {
-        // Use the main seed for noise consistency
-        const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
-        this.noise = new SimplexNoise(noiseSeed);
+        // Use the original noise seed for consistency
+        this.noise = new SimplexNoise(this.originalNoiseSeed);
       }
       this.updateSketch();
       if (!this.isInitializing) this.saveSettings(); // Auto-save when value changes
@@ -860,7 +778,7 @@ class ArcSketch {
     const angularResolutionControl = document.createElement('li');
     const angularResolutionRange = this.controlSettings.angularResolution;
     angularResolutionControl.innerHTML = `
-      <label for="angularResolution-slider">Angular resolution (°): </label>
+      <label for="angularResolution-slider">Angular grid resolution (°): </label>
       <div class="control-row">
         <div class="control-input-group">
           <input type="range" id="angularResolution-slider" min="${angularResolutionRange.min}" max="${angularResolutionRange.max}" step="${angularResolutionRange.step}" value="${angularResolutionRange.value}" class="control-slider">
@@ -1253,8 +1171,6 @@ class ArcSketch {
       const nRowsLocked = this.controlSettings.nRows.locked;
       const lineSpacingLocked = this.controlSettings.lineSpacing.locked;
       const shiftTextPatternLocked = this.controlSettings.shiftTextPattern.locked;
-      const useBlanksLocked = this.controlSettings.useBlanks.locked;
-      const blanksProbLocked = this.controlSettings.blanksProb.locked;
       const useNoiseLocked = this.controlSettings.useNoise.locked;
       const angularNoiseLocked = this.controlSettings.angularNoise.locked;
       const angularResolutionLocked = this.controlSettings.angularResolution.locked;
@@ -1285,15 +1201,6 @@ class ArcSketch {
           this.controlSettings.shiftTextPattern.options = ['none', 'forward', 'backward', 'random'];
         }
         this.controlSettings.shiftTextPattern.value = this.controlSettings.shiftTextPattern.options[rndInt(0, this.controlSettings.shiftTextPattern.options.length - 1)];
-      }
-      
-      if (!useBlanksLocked) {
-        this.controlSettings.useBlanks.value = Math.random() > 0.6; // 40% chance to use blanks
-      }
-      
-      if (!blanksProbLocked) {
-        const range = this.controlSettings.blanksProb;
-        this.controlSettings.blanksProb.value = rndInt(range.min, range.max);
       }
       
       if (!useNoiseLocked) {
@@ -1373,15 +1280,6 @@ class ArcSketch {
       
       if (!shiftTextPatternLocked) {
         textPatternShiftSelect.value = this.controlSettings.shiftTextPattern.value;
-      }
-      
-      if (!useBlanksLocked) {
-        useBlanksCheckbox.checked = this.controlSettings.useBlanks.value;
-      }
-      
-      if (!blanksProbLocked) {
-        blanksProbSlider.value = this.controlSettings.blanksProb.value;
-        blanksProbInput.value = this.controlSettings.blanksProb.value;
       }
       
       if (!useNoiseLocked) {
@@ -1474,19 +1372,25 @@ class ArcSketch {
       }, 1000);
     });
 
-    // Load from SVG control
+    // Load from SVG and Reset controls
     const loadFromSvgControl = document.createElement('li');
     loadFromSvgControl.innerHTML = `
       <div class="control-button-group">
         <button id="load-from-svg-btn" class="btn secondary">Load from SVG</button>
+        <button id="reset-to-defaults-btn" class="btn secondary">Reset Defaults</button>
       </div>
     `;
     values.append(loadFromSvgControl);
 
     const loadFromSvgBtn = loadFromSvgControl.querySelector('#load-from-svg-btn');
+    const resetToDefaultsBtn = loadFromSvgControl.querySelector('#reset-to-defaults-btn');
     
     loadFromSvgBtn.addEventListener('click', () => {
       this.loadSettingsFromFile();
+    });
+
+    resetToDefaultsBtn.addEventListener('click', () => {
+      this.resetToDefaults();
     });
 
     const btnLi = document.createElement('li');
@@ -1745,14 +1649,50 @@ class ArcSketch {
     document.body.removeChild(fileInput);
   }
 
+  resetToDefaults() {
+    // Reset all control settings to their original values and lock states
+    Object.keys(this.controlSettings).forEach(key => {
+      if (this.originalControlSettings[key]) {
+        // Restore both value and locked state from the original configuration
+        this.controlSettings[key].value = this.originalControlSettings[key].value;
+        this.controlSettings[key].locked = this.originalControlSettings[key].locked;
+      }
+    });
+
+    // Clear localStorage
+    localStorage.removeItem('arcSketchSettings');
+
+    // Reinitialize noise if needed
+    if (this.controlSettings.useNoise.value) {
+      // Use the original noise seed to maintain consistency
+      this.noise = new SimplexNoise(this.originalNoiseSeed);
+    }
+
+    // Update UI controls to reflect reset values
+    this.restoreControlsFromSettings();
+
+    // Update sketch with reset values
+    this.updateSketch();
+
+    // Show feedback
+    const resetBtn = document.getElementById('reset-to-defaults-btn');
+    if (resetBtn) {
+      const originalText = resetBtn.textContent;
+      resetBtn.textContent = 'Reset!';
+      setTimeout(() => {
+        resetBtn.textContent = originalText;
+      }, 1000);
+    }
+
+    console.log('All settings reset to defaults');
+  }
+
   getCurrentLockStates() {
     // Sync the internal state with the DOM and return current lock states
     // Update internal state from DOM
     this.controlSettings.nRows.locked = document.getElementById('nRows-lock')?.checked || false;
     this.controlSettings.lineSpacing.locked = document.getElementById('lineSpacing-lock')?.checked || false;
     this.controlSettings.shiftTextPattern.locked = document.getElementById('shiftTextPattern-lock')?.checked || false;
-    this.controlSettings.useBlanks.locked = document.getElementById('useBlanks-lock')?.checked || false;
-    this.controlSettings.blanksProb.locked = document.getElementById('blanksProb-lock')?.checked || false;
     this.controlSettings.useNoise.locked = document.getElementById('useNoise-lock')?.checked || false;
     this.controlSettings.angularNoise.locked = document.getElementById('angularNoise-lock')?.checked || false;
     this.controlSettings.angularResolution.locked = document.getElementById('angularResolution-lock')?.checked || false;
@@ -1771,8 +1711,6 @@ class ArcSketch {
       nRows: this.controlSettings.nRows.locked,
       lineSpacing: this.controlSettings.lineSpacing.locked,
       shiftTextPattern: this.controlSettings.shiftTextPattern.locked,
-      useBlanks: this.controlSettings.useBlanks.locked,
-      blanksProb: this.controlSettings.blanksProb.locked,
       useNoise: this.controlSettings.useNoise.locked,
       angularNoise: this.controlSettings.angularNoise.locked,
       angularResolution: this.controlSettings.angularResolution.locked,
@@ -1813,20 +1751,6 @@ class ArcSketch {
     const textPatternShiftSelect = document.getElementById('shiftTextPattern-select');
     if (textPatternShiftSelect) {
       textPatternShiftSelect.value = this.controlSettings.shiftTextPattern.value;
-    }
-    
-    // Update use blanks toggle
-    const useBlanksCheckbox = document.getElementById('useBlanks-checkbox');
-    if (useBlanksCheckbox) {
-      useBlanksCheckbox.checked = this.controlSettings.useBlanks.value;
-    }
-    
-    // Update blanks probability controls
-    const blanksProbSlider = document.getElementById('blanksProb-slider');
-    const blanksProbInput = document.getElementById('blanksProb-input');
-    if (blanksProbSlider && blanksProbInput) {
-      blanksProbSlider.value = this.controlSettings.blanksProb.value;
-      blanksProbInput.value = this.controlSettings.blanksProb.value;
     }
     
     // Update noise toggle
@@ -1927,8 +1851,6 @@ class ArcSketch {
         nRows: this.controlSettings.nRows.locked,
         lineSpacing: this.controlSettings.lineSpacing.locked,
         shiftTextPattern: this.controlSettings.shiftTextPattern.locked,
-        useBlanks: this.controlSettings.useBlanks.locked,
-        blanksProb: this.controlSettings.blanksProb.locked,
         useNoise: this.controlSettings.useNoise.locked,
         angularNoise: this.controlSettings.angularNoise.locked,
         angularResolution: this.controlSettings.angularResolution.locked,
@@ -1949,8 +1871,6 @@ class ArcSketch {
       const nRowsLock = document.getElementById('nRows-lock');
       const lineSpacingLock = document.getElementById('lineSpacing-lock');
       const shiftTextPatternLock = document.getElementById('shiftTextPattern-lock');
-      const useBlanksLock = document.getElementById('useBlanks-lock');
-      const blanksProbLock = document.getElementById('blanksProb-lock');
       const useNoiseLock = document.getElementById('useNoise-lock');
       const angularNoiseLock = document.getElementById('angularNoise-lock');
       const angularResolutionLock = document.getElementById('angularResolution-lock');
@@ -1967,8 +1887,6 @@ class ArcSketch {
       if (nRowsLock) nRowsLock.checked = lockStates.nRows || false;
       if (lineSpacingLock) lineSpacingLock.checked = lockStates.lineSpacing || false;
       if (shiftTextPatternLock) shiftTextPatternLock.checked = lockStates.shiftTextPattern || false;
-      if (useBlanksLock) useBlanksLock.checked = lockStates.useBlanks || false;
-      if (blanksProbLock) blanksProbLock.checked = lockStates.blanksProb || false;
       if (useNoiseLock) useNoiseLock.checked = lockStates.useNoise || false;
       if (angularNoiseLock) angularNoiseLock.checked = lockStates.angularNoise || false;
       if (angularResolutionLock) angularResolutionLock.checked = lockStates.angularResolution || false;
@@ -1986,8 +1904,6 @@ class ArcSketch {
       this.controlSettings.nRows.locked = lockStates.nRows || false;
       this.controlSettings.lineSpacing.locked = lockStates.lineSpacing || false;
       this.controlSettings.shiftTextPattern.locked = lockStates.shiftTextPattern || false;
-      this.controlSettings.useBlanks.locked = lockStates.useBlanks || false;
-      this.controlSettings.blanksProb.locked = lockStates.blanksProb || false;
       this.controlSettings.useNoise.locked = lockStates.useNoise || false;
       this.controlSettings.angularNoise.locked = lockStates.angularNoise || false;
       this.controlSettings.angularResolution.locked = lockStates.angularResolution || false;
