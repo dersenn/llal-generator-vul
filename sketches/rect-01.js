@@ -127,6 +127,23 @@ class RectSketch {
       },
       
       // Noise controls
+      positionalNoise: {
+        type: 'toggle',
+        label: 'Positional noise',
+        default: false,
+        value: true,
+        locked: true
+      },
+      positionalResolution: {
+        type: 'range',
+        label: 'Positional grid resolution',
+        min: 0.05,
+        max: 2,
+        step: 0.05,
+        default: 0.6,
+        value: 0.6,
+        locked: true
+      },
       yScaleFactor: {
         type: 'range',
         label: 'Y-axis pattern scale',
@@ -593,9 +610,30 @@ class RectSketch {
           let frequency = 1.0;
           
           for (let octave = 0; octave < this.controlSettings.noiseOctaves.value; octave++) {
-            // Use character position and row for noise coordinates
-            const noiseX = i * this.controlSettings.noiseScale.value * frequency;
-            const noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
+            let noiseX, noiseY;
+            
+            if (this.controlSettings.positionalNoise.value) {
+              // Center-based positional sampling using horizontal geometry
+              // Calculate the relative position from the center of the text area
+              const totalTextLength = fullText.length;
+              const centerIndex = totalTextLength / 2;
+              
+              // Character's position relative to center (0 at center, negative/positive at edges)
+              const charRelativePosition = i - centerIndex;
+              
+              // Create positional grid centered around the text middle
+              const positionalResolution = this.controlSettings.positionalResolution.value; // units per grid cell
+              const positionalGridIndex = Math.floor(charRelativePosition / positionalResolution);
+              
+              // Use grid-based coordinates: positional index and consistent row-based Y
+              // This creates consistent patterns that don't depend on character widths
+              noiseX = positionalGridIndex * this.controlSettings.noiseScale.value * frequency;
+              noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
+            } else {
+              // Use character index directly (creates pattern that deteriorates with width variation)
+              noiseX = i * this.controlSettings.noiseScale.value * frequency;
+              noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
+            }
             
             noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
             
@@ -1202,13 +1240,15 @@ class RectSketch {
     this.controlSettings.nRows.locked = document.getElementById('nRows-lock')?.checked || false;
     this.controlSettings.lineSpacing.locked = document.getElementById('lineSpacing-lock')?.checked || false;
     this.controlSettings.shiftTextPattern.locked = document.getElementById('shiftTextPattern-lock')?.checked || false;
+    this.controlSettings.positionalNoise.locked = document.getElementById('positionalNoise-lock')?.checked || false;
+    this.controlSettings.positionalResolution.locked = document.getElementById('positionalResolution-lock')?.checked || false;
     this.controlSettings.yScaleFactor.locked = document.getElementById('yScaleFactor-lock')?.checked || false;
+    this.controlSettings.noiseScale.locked = document.getElementById('noiseScale-lock')?.checked || false;
     this.controlSettings.inverseWidthMapping.locked = document.getElementById('inverseWidthMapping-lock')?.checked || false;
     this.controlSettings.fontSizeVariation.locked = document.getElementById('fontSizeVariation-lock')?.checked || false;
     this.controlSettings.fontSizeVariationAmount.locked = document.getElementById('fontSizeVariationAmount-lock')?.checked || false;
     this.controlSettings.fontSizeNoiseScale.locked = document.getElementById('fontSizeNoiseScale-lock')?.checked || false;
     this.controlSettings.adaptiveSpacing.locked = document.getElementById('adaptiveSpacing-lock')?.checked || false;
-    this.controlSettings.noiseScale.locked = document.getElementById('noiseScale-lock')?.checked || false;
     this.controlSettings.noiseOctaves.locked = document.getElementById('noiseOctaves-lock')?.checked || false;
     this.controlSettings.noisePersistence.locked = document.getElementById('noisePersistence-lock')?.checked || false;
     this.controlSettings.noiseContrast.locked = document.getElementById('noiseContrast-lock')?.checked || false;
@@ -1221,13 +1261,15 @@ class RectSketch {
       nRows: this.controlSettings.nRows.locked,
       lineSpacing: this.controlSettings.lineSpacing.locked,
       shiftTextPattern: this.controlSettings.shiftTextPattern.locked,
+      positionalNoise: this.controlSettings.positionalNoise.locked,
+      positionalResolution: this.controlSettings.positionalResolution.locked,
       yScaleFactor: this.controlSettings.yScaleFactor.locked,
+      noiseScale: this.controlSettings.noiseScale.locked,
       inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
       fontSizeVariation: this.controlSettings.fontSizeVariation.locked,
       fontSizeVariationAmount: this.controlSettings.fontSizeVariationAmount.locked,
       fontSizeNoiseScale: this.controlSettings.fontSizeNoiseScale.locked,
       adaptiveSpacing: this.controlSettings.adaptiveSpacing.locked,
-      noiseScale: this.controlSettings.noiseScale.locked,
       noiseOctaves: this.controlSettings.noiseOctaves.locked,
       noisePersistence: this.controlSettings.noisePersistence.locked,
       noiseContrast: this.controlSettings.noiseContrast.locked,

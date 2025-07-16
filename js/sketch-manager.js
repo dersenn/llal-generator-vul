@@ -39,19 +39,19 @@ class SketchManager {
     const sketchDefinitions = [
       {
         name: 'arc-01',
-        displayName: 'Arc Text 01',
+        displayName: 'Vulkanmuster',
         class: ArcSketch,
         description: 'Arc text layout with cone pattern'
       },
       {
         name: 'rect-01',
-        displayName: 'Rect Text 01',
+        displayName: 'Flächenmuster',
         class: RectSketch,
         description: 'Rectangular text layout with horizontal paths'
       },
       {
         name: 'firework-01',
-        displayName: 'Firework 01',
+        displayName: 'Firework 01 (alt)',
         class: FireworkSketch,
         description: 'Firework pattern with LLAL text'
       }
