@@ -50,6 +50,12 @@ class SketchManager {
         description: 'Rectangular text layout with horizontal paths'
       },
       {
+        name: 'rect-01-animated',
+        displayName: 'Flächenmuster (Animated)',
+        class: RectAnimatedSketch,
+        description: 'Animated rectangular text layout with moving noise patterns'
+      },
+      {
         name: 'firework-01',
         displayName: 'Firework 01 (alt)',
         class: FireworkSketch,
