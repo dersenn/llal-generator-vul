@@ -216,7 +216,7 @@ class ArcSketch {
         type: 'toggle',
         label: 'Font size variation',
         default: false,
-        value: true,
+        value: false,
         locked: true
       },
       fontSizeVariationAmount: {
@@ -244,7 +244,7 @@ class ArcSketch {
         label: 'Adaptive row spacing',
         default: true,
         value: true,
-        locked: false
+        locked: true
       },
 
       // Color controls
