@@ -225,8 +225,8 @@ class ArcSketch {
         min: 0.1,
         max: 2.0,
         step: 0.1,
-        default: 0.6,
-        value: 0.6,
+        default: 0.3,
+        value: 0.3,
         locked: true
       },
       fontSizeNoiseScale: {
@@ -235,8 +235,8 @@ class ArcSketch {
         min: 0.005,
         max: 0.1,
         step: 0.005,
-        default: 0.03,
-        value: 0.03,
+        default: 0.05,
+        value: 0.05,
         locked: true
       },
       adaptiveSpacing: {
@@ -244,7 +244,7 @@ class ArcSketch {
         label: 'Adaptive row spacing',
         default: true,
         value: true,
-        locked: true
+        locked: false
       },
 
       // Color controls
@@ -585,9 +585,6 @@ class ArcSketch {
     for (let row = 1; row < nRows; row++) {
       const radius = rowRadii[row - 1]; // rowRadii is 0-indexed, row starts from 1
       
-      // Get the pre-calculated font size for this row
-      const rowFontSize = rowFontSizes[row - 1]; // rowFontSizes is 0-indexed, row starts from 1
-      
       // Create the arc path for this radius
       const pathId = `arc-path-${row}`;
       const path = document.createElementNS(this.svg.ns, 'path');
@@ -601,7 +598,7 @@ class ArcSketch {
       const arcLength = radius * Math.abs(rad(arcEnd - arcStart));
       
       // Calculate repetitions based on actual row font size (not base font size)
-      const actualFontSize = rowFontSize; // Use the actual font size for this row
+      const actualFontSize = rowFontSizes[row - 1]; // Use the actual font size for this row
       const avgCharWidth = actualFontSize * 0.4; // Character width based on actual font size
       const charsPerLLAL = txt.length;
       const avgLLALWidth = avgCharWidth * charsPerLLAL;
@@ -647,6 +644,7 @@ class ArcSketch {
       const text = document.createElementNS(this.svg.ns, 'text');
       
       // Apply font size variation per row (use pre-calculated size)
+      const rowFontSize = rowFontSizes[row - 1]; // rowFontSizes is 0-indexed, row starts from 1
       text.setAttribute('style', `font-size: ${rowFontSize}px`);
       
       // Create textPath element
