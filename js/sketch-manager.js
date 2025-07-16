@@ -44,6 +44,12 @@ class SketchManager {
         description: 'Arc text layout with cone pattern'
       },
       {
+        name: 'rect-01',
+        displayName: 'Rect Text 01',
+        class: RectSketch,
+        description: 'Rectangular text layout with horizontal paths'
+      },
+      {
         name: 'firework-01',
         displayName: 'Firework 01',
         class: FireworkSketch,
