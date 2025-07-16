@@ -97,8 +97,8 @@ class ArcSketch {
       nRows: {
         type: 'range',
         label: 'Number of lines',
-        min: 30,
-        max: 240,
+        min: 60,
+        max: 180,
         step: 1,
         default: 120,
         value: 120,
@@ -149,9 +149,9 @@ class ArcSketch {
         min: 0.05,
         max: 5.0,
         step: 0.05,
-        default: 0.5,
-        value: 0.5,
-        locked: false
+        default: 0.45,
+        value: 0.45,
+        locked: true
       },
       noiseScale: {
         type: 'range',
@@ -159,8 +159,8 @@ class ArcSketch {
         min: 0.001,
         max: 0.1,
         step: 0.001,
-        default: 0.06,
-        value: 0.06,
+        default: 0.09,
+        value: 0.09,
         locked: false
       },
       noiseOctaves: {
@@ -179,8 +179,8 @@ class ArcSketch {
         min: 0.1,
         max: 1.0,
         step: 0.1,
-        default: 0.5,
-        value: 0.5,
+        default: 0.6,
+        value: 0.6,
         locked: false
       },
       noiseContrast: {
@@ -189,9 +189,9 @@ class ArcSketch {
         min: 0.1,
         max: 3.0,
         step: 0.1,
-        default: 1.2,
-        value: 1.2,
-        locked: false
+        default: 0.9,
+        value: 0.9,
+        locked: true
       },
       noiseLacunarity: {
         type: 'range',
@@ -199,8 +199,8 @@ class ArcSketch {
         min: 0.05,
         max: 1.5,
         step: 0.05,
-        default: 0.9,
-        value: 0.9,
+        default: 0.75,
+        value: 0.75,
         locked: false
       },
       inverseWidthMapping: {
@@ -222,8 +222,8 @@ class ArcSketch {
       colFG: {
         type: 'color',
         label: 'Text color',
-        default: '#ffffff',
-        value: '#ffffff',
+        default: '#ff794e',
+        value: '#ff794e',
         locked: true
       }
     };
