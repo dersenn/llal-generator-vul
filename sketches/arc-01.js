@@ -211,6 +211,35 @@ class ArcSketch {
         locked: true
       },
 
+      // Font size variation controls
+      fontSizeVariation: {
+        type: 'toggle',
+        label: 'Font size variation',
+        default: false,
+        value: true,
+        locked: true
+      },
+      fontSizeVariationAmount: {
+        type: 'range',
+        label: 'Font size variation amount',
+        min: 0.1,
+        max: 2.0,
+        step: 0.1,
+        default: 0.3,
+        value: 0.3,
+        locked: true
+      },
+      fontSizeNoiseScale: {
+        type: 'range',
+        label: 'Font size noise scale',
+        min: 0.005,
+        max: 0.1,
+        step: 0.005,
+        default: 0.05,
+        value: 0.05,
+        locked: true
+      },
+
       // Color controls
       colBG: {
         type: 'color',
@@ -262,8 +291,9 @@ class ArcSketch {
     style.setAttribute('type', 'text/css');
     
     // Define CSS classes for each width variation using distinct font files
+    // Note: font-size is now applied per-row to allow for size variation
     const cssRules = `
-      .st0 { font-size: ${this.fSize}; fill: ${this.controlSettings.colFG.value}; }
+      .st0 { fill: ${this.controlSettings.colFG.value}; }
       .width-50 { font-family: 'LLALLogoLinear-Condensed'; }
       .width-100 { font-family: 'LLALLogoLinear-Regular'; }
       .width-150 { font-family: 'LLALLogoLinear-Extended'; }
@@ -424,6 +454,47 @@ class ArcSketch {
     this.svg.stage.append(line);
   }
 
+  calculateRowFontSize(row) {
+    const baseFontSize = parseFloat(this.fSize);
+    
+    if (!this.controlSettings.fontSizeVariation.value || !this.noise) {
+      return baseFontSize;
+    }
+    
+    // Calculate noise for this row
+    let noiseValue = 0;
+    let amplitude = 1.0;
+    let frequency = 1.0;
+    
+    for (let octave = 0; octave < this.controlSettings.noiseOctaves.value; octave++) {
+      const noiseX = 0; // Keep X constant for row-based variation
+      const noiseY = (row - 1) * this.controlSettings.fontSizeNoiseScale.value * frequency;
+      noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
+      
+      amplitude *= this.controlSettings.noisePersistence.value;
+      frequency *= this.controlSettings.noiseLacunarity.value;
+    }
+    
+    // Apply contrast
+    const contrast = this.controlSettings.noiseContrast.value;
+    if (contrast !== 1.0) {
+      noiseValue = Math.sign(noiseValue) * Math.pow(Math.abs(noiseValue), contrast);
+    }
+    
+    // Clamp noise value
+    noiseValue = Math.max(-1, Math.min(1, noiseValue));
+    
+    // Apply variation
+    const variation = this.controlSettings.fontSizeVariationAmount.value;
+    const scaleFactor = 1 + (noiseValue * variation);
+    
+    // Ensure font size doesn't go below a minimum threshold or above maximum
+    const minFontSize = baseFontSize * 0.3;
+    const maxFontSize = baseFontSize * 2.0;
+    
+    return Math.max(minFontSize, Math.min(maxFontSize, baseFontSize * scaleFactor));
+  }
+
   createArcText() {
     const rOuter = 376 * this.mmToPx;
     const rInner = 100 * this.mmToPx;
@@ -512,6 +583,10 @@ class ArcSketch {
       
       // Create text element that follows the path
       const text = document.createElementNS(this.svg.ns, 'text');
+      
+      // Apply font size variation per row
+      const rowFontSize = this.calculateRowFontSize(row);
+      text.setAttribute('style', `font-size: ${rowFontSize}px`);
       
       // Create textPath element
       const textPath = document.createElementNS(this.svg.ns, 'textPath');
@@ -1165,6 +1240,9 @@ class ArcSketch {
     this.controlSettings.angularResolution.locked = document.getElementById('angularResolution-lock')?.checked || false;
     this.controlSettings.yScaleFactor.locked = document.getElementById('yScaleFactor-lock')?.checked || false;
     this.controlSettings.inverseWidthMapping.locked = document.getElementById('inverseWidthMapping-lock')?.checked || false;
+    this.controlSettings.fontSizeVariation.locked = document.getElementById('fontSizeVariation-lock')?.checked || false;
+    this.controlSettings.fontSizeVariationAmount.locked = document.getElementById('fontSizeVariationAmount-lock')?.checked || false;
+    this.controlSettings.fontSizeNoiseScale.locked = document.getElementById('fontSizeNoiseScale-lock')?.checked || false;
     this.controlSettings.noiseScale.locked = document.getElementById('noiseScale-lock')?.checked || false;
     this.controlSettings.noiseOctaves.locked = document.getElementById('noiseOctaves-lock')?.checked || false;
     this.controlSettings.noisePersistence.locked = document.getElementById('noisePersistence-lock')?.checked || false;
@@ -1182,6 +1260,9 @@ class ArcSketch {
       angularResolution: this.controlSettings.angularResolution.locked,
       yScaleFactor: this.controlSettings.yScaleFactor.locked,
       inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
+      fontSizeVariation: this.controlSettings.fontSizeVariation.locked,
+      fontSizeVariationAmount: this.controlSettings.fontSizeVariationAmount.locked,
+      fontSizeNoiseScale: this.controlSettings.fontSizeNoiseScale.locked,
       noiseScale: this.controlSettings.noiseScale.locked,
       noiseOctaves: this.controlSettings.noiseOctaves.locked,
       noisePersistence: this.controlSettings.noisePersistence.locked,
