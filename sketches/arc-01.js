@@ -225,8 +225,8 @@ class ArcSketch {
         min: 0.1,
         max: 2.0,
         step: 0.1,
-        default: 0.3,
-        value: 0.3,
+        default: 0.6,
+        value: 0.6,
         locked: true
       },
       fontSizeNoiseScale: {
@@ -235,8 +235,15 @@ class ArcSketch {
         min: 0.005,
         max: 0.1,
         step: 0.005,
-        default: 0.05,
-        value: 0.05,
+        default: 0.03,
+        value: 0.03,
+        locked: true
+      },
+      adaptiveSpacing: {
+        type: 'toggle',
+        label: 'Adaptive row spacing',
+        default: true,
+        value: true,
         locked: true
       },
 
@@ -495,6 +502,41 @@ class ArcSketch {
     return Math.max(minFontSize, Math.min(maxFontSize, baseFontSize * scaleFactor));
   }
 
+  calculateRowRadii(rowFontSizes, rOuter, rInner, nRows) {
+    const availableSpace = rOuter - rInner;
+    const numRows = rowFontSizes.length;
+    
+    if (numRows === 0) return [];
+    
+    // Calculate spacing needed for each row based on font size and line spacing
+    const spacingMultiplier = this.controlSettings.lineSpacing.value;
+    const rowSpacings = rowFontSizes.map(fontSize => fontSize * spacingMultiplier);
+    
+    // Calculate total spacing needed
+    const totalSpacing = rowSpacings.reduce((sum, spacing) => sum + spacing, 0);
+    
+    // If total spacing exceeds available space, scale down proportionally
+    const scaleFactor = totalSpacing > availableSpace ? availableSpace / totalSpacing : 1.0;
+    
+    // Calculate actual radius positions
+    const rowRadii = [];
+    let currentRadius = rOuter; // Start from outer radius and work inward
+    
+    for (let i = 0; i < numRows; i++) {
+      // For the first row, start at the outer radius
+      if (i === 0) {
+        rowRadii.push(currentRadius);
+      } else {
+        // Move inward by the scaled spacing for the previous row
+        const previousSpacing = rowSpacings[i - 1] * scaleFactor;
+        currentRadius -= previousSpacing;
+        rowRadii.push(Math.max(currentRadius, rInner)); // Don't go below inner radius
+      }
+    }
+    
+    return rowRadii;
+  }
+
   createArcText() {
     const rOuter = 376 * this.mmToPx;
     const rInner = 100 * this.mmToPx;
@@ -519,12 +561,32 @@ class ArcSketch {
     const txt = this.staticSettings.txt;
     const colFG = this.controlSettings.colFG.value;
     
-    // Calculate radius step between lines
-    const radiusStep = (rOuter - rInner) / (nRows - 1);
+    // Calculate font sizes for all rows first
+    const rowFontSizes = [];
+    for (let row = 1; row < nRows; row++) {
+      rowFontSizes.push(this.calculateRowFontSize(row));
+    }
+    
+    // Calculate radius positions - either adaptive or fixed spacing
+    let rowRadii;
+    if (this.controlSettings.adaptiveSpacing.value) {
+      // Use adaptive spacing based on font sizes
+      rowRadii = this.calculateRowRadii(rowFontSizes, rOuter, rInner, nRows);
+    } else {
+      // Use fixed spacing (original behavior)
+      const radiusStep = (rOuter - rInner) / (nRows - 1);
+      rowRadii = [];
+      for (let row = 1; row < nRows; row++) {
+        rowRadii.push(rInner + (row * radiusStep));
+      }
+    }
     
     // Generate text for each line - follow the arc using textPath
     for (let row = 1; row < nRows; row++) {
-      const radius = rInner + (row * radiusStep);
+      const radius = rowRadii[row - 1]; // rowRadii is 0-indexed, row starts from 1
+      
+      // Get the pre-calculated font size for this row
+      const rowFontSize = rowFontSizes[row - 1]; // rowFontSizes is 0-indexed, row starts from 1
       
       // Create the arc path for this radius
       const pathId = `arc-path-${row}`;
@@ -538,15 +600,15 @@ class ArcSketch {
       // Calculate arc length for this radius
       const arcLength = radius * Math.abs(rad(arcEnd - arcStart));
       
-      // Better estimation for character width and repetitions
-      const fontSize = parseFloat(fSize);
-      const avgCharWidth = fontSize * 0.4; // More accurate average character width
+      // Calculate repetitions based on actual row font size (not base font size)
+      const actualFontSize = rowFontSize; // Use the actual font size for this row
+      const avgCharWidth = actualFontSize * 0.4; // Character width based on actual font size
       const charsPerLLAL = txt.length;
       const avgLLALWidth = avgCharWidth * charsPerLLAL;
       
-      // Calculate repetitions with generous extra to ensure full coverage
+      // Calculate repetitions with much more generous safety margin for smaller fonts
       const baseRepetitions = Math.ceil(arcLength / avgLLALWidth);
-      const repetitions = Math.max(baseRepetitions * 1.5, 12); // Minimum 12 repetitions, 50% safety margin
+      const repetitions = Math.max(baseRepetitions * 3.0, 24); // Minimum 24 repetitions, 200% safety margin
       
       // Create the full line of repeating text
       let fullText = '';
@@ -584,8 +646,7 @@ class ArcSketch {
       // Create text element that follows the path
       const text = document.createElementNS(this.svg.ns, 'text');
       
-      // Apply font size variation per row
-      const rowFontSize = this.calculateRowFontSize(row);
+      // Apply font size variation per row (use pre-calculated size)
       text.setAttribute('style', `font-size: ${rowFontSize}px`);
       
       // Create textPath element
@@ -1243,6 +1304,7 @@ class ArcSketch {
     this.controlSettings.fontSizeVariation.locked = document.getElementById('fontSizeVariation-lock')?.checked || false;
     this.controlSettings.fontSizeVariationAmount.locked = document.getElementById('fontSizeVariationAmount-lock')?.checked || false;
     this.controlSettings.fontSizeNoiseScale.locked = document.getElementById('fontSizeNoiseScale-lock')?.checked || false;
+    this.controlSettings.adaptiveSpacing.locked = document.getElementById('adaptiveSpacing-lock')?.checked || false;
     this.controlSettings.noiseScale.locked = document.getElementById('noiseScale-lock')?.checked || false;
     this.controlSettings.noiseOctaves.locked = document.getElementById('noiseOctaves-lock')?.checked || false;
     this.controlSettings.noisePersistence.locked = document.getElementById('noisePersistence-lock')?.checked || false;
@@ -1263,6 +1325,7 @@ class ArcSketch {
       fontSizeVariation: this.controlSettings.fontSizeVariation.locked,
       fontSizeVariationAmount: this.controlSettings.fontSizeVariationAmount.locked,
       fontSizeNoiseScale: this.controlSettings.fontSizeNoiseScale.locked,
+      adaptiveSpacing: this.controlSettings.adaptiveSpacing.locked,
       noiseScale: this.controlSettings.noiseScale.locked,
       noiseOctaves: this.controlSettings.noiseOctaves.locked,
       noisePersistence: this.controlSettings.noisePersistence.locked,
