@@ -89,7 +89,7 @@ class RectAnimatedSketch {
       marginBottom: 20,
       marginLeft: 30,
       marginRight: 30,
-      wdths: [50, 100, 150, 200],
+      widthRange: { min: 50, max: 200 }, // Variable font width range
       nCols: 20,
       txt: 'LLAL',
       guides: {
@@ -104,7 +104,8 @@ class RectAnimatedSketch {
     this.animationSettings = {
       targetFPS: 25, // Reduced FPS for performance
       speed: 0.5, // Animation speed multiplier
-      timeOffset: 0 // Current time offset for noise sampling
+      timeOffset: 0, // Current time offset for noise sampling
+      frameCount: 0 // Frame counter for performance optimizations
     };
 
     // Comprehensive control settings - each control has all its configuration in one place
@@ -147,6 +148,13 @@ class RectAnimatedSketch {
         label: 'Enable animation',
         default: true,
         value: true,
+        locked: false
+      },
+      performanceMode: {
+        type: 'toggle',
+        label: 'Performance mode',
+        default: false,
+        value: false,
         locked: false
       },
       
@@ -328,18 +336,16 @@ class RectAnimatedSketch {
   }
 
   createWidthStyles() {
-    // Create style element following Illustrator SVG pattern
+    // Create style element for variable font
     const style = document.createElementNS(this.svg.ns, 'style');
     style.setAttribute('type', 'text/css');
     
-    // Define CSS classes for each width variation using distinct font files
-    // Note: font-size is now applied per-row to allow for size variation
+    // Define CSS for variable font usage
     const cssRules = `
-      .st0 { fill: ${this.controlSettings.colFG.value}; }
-      .width-50 { font-family: 'LLALLogoLinear-Condensed'; }
-      .width-100 { font-family: 'LLALLogoLinear-Regular'; }
-      .width-150 { font-family: 'LLALLogoLinear-Extended'; }
-      .width-200 { font-family: 'LLALLogoLinear-Expanded'; }
+      .st0 { 
+        fill: ${this.controlSettings.colFG.value}; 
+        font-family: 'LLAL-linear', 'LLALLogoLinearGX', sans-serif;
+      }
     `;
     
     style.textContent = cssRules;
@@ -416,6 +422,7 @@ class RectAnimatedSketch {
     if (!this.isAnimating && this.controlSettings.animationEnabled.value) {
       this.isAnimating = true;
       this.animationStartTime = performance.now();
+      this.animationSettings.frameCount = 0; // Reset frame counter
       this.animationLoop();
     }
   }
@@ -433,15 +440,26 @@ class RectAnimatedSketch {
 
     const currentTime = performance.now();
     const deltaTime = currentTime - this.lastFrameTime;
-    const targetFrameTime = 1000 / this.animationSettings.targetFPS;
+    
+    // Adjust target FPS based on performance mode
+    const targetFPS = this.controlSettings.performanceMode.value ? 15 : this.animationSettings.targetFPS;
+    const targetFrameTime = 1000 / targetFPS;
 
     // Only update if enough time has passed (FPS throttling)
     if (deltaTime >= targetFrameTime) {
+      // Increment frame counter
+      this.animationSettings.frameCount++;
+      
       // Update animation time
       this.animationTime = (currentTime - this.animationStartTime) * 0.001 * this.controlSettings.animationSpeed.value;
       
-      // Update the text with new animation time
-      this.updateRectText();
+      // Performance mode: Skip every other frame for calculations
+      const shouldUpdateCalculations = !this.controlSettings.performanceMode.value || (this.animationSettings.frameCount % 2 === 0);
+      
+      if (shouldUpdateCalculations) {
+        // Update the text with new animation time
+        this.updateRectText();
+      }
       
       this.lastFrameTime = currentTime;
     }
@@ -492,10 +510,35 @@ class RectAnimatedSketch {
     let amplitude = 1.0;
     let frequency = 1.0;
     
-    for (let octave = 0; octave < this.controlSettings.noiseOctaves.value; octave++) {
-      const noiseX = this.animationTime * 0.1; // Slow time-based movement
-      const noiseY = row * this.controlSettings.fontSizeNoiseScale.value * frequency;
-      noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
+    // Use fewer octaves in performance mode
+    const maxOctaves = this.controlSettings.performanceMode.value ? 2 : this.controlSettings.noiseOctaves.value;
+    
+    for (let octave = 0; octave < maxOctaves; octave++) {
+      // Create more interesting movement through noise space for font size
+      const baseX = 0; // Keep X centered for font size
+      const baseY = row * this.controlSettings.fontSizeNoiseScale.value;
+      
+      // Simplified movement in performance mode
+      if (this.controlSettings.performanceMode.value) {
+        const timeSpeed = this.animationTime * 0.1; // Slower for font size
+        const offsetX = Math.sin(timeSpeed) * 0.3;
+        const offsetY = Math.cos(timeSpeed * 0.7) * 0.1;
+        
+        const noiseX = (baseX + offsetX) * frequency;
+        const noiseY = (baseY + offsetY) * frequency;
+        
+        noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
+      } else {
+        // Multi-dimensional movement through noise space
+        const timeSpeed = this.animationTime * 0.15; // Slower for font size
+        const offsetX = Math.cos(timeSpeed * 0.4) * 0.5 + Math.sin(timeSpeed * 0.8) * 0.3;
+        const offsetY = Math.sin(timeSpeed * 0.3) * 0.2 + Math.cos(timeSpeed * 0.6) * 0.1;
+        
+        const noiseX = (baseX + offsetX) * frequency;
+        const noiseY = (baseY + offsetY) * frequency;
+        
+        noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
+      }
       
       amplitude *= this.controlSettings.noisePersistence.value;
       frequency *= this.controlSettings.noiseLacunarity.value;
@@ -639,9 +682,11 @@ class RectAnimatedSketch {
       const charsPerLLAL = txt.length;
       const avgLLALWidth = avgCharWidth * charsPerLLAL;
       
-      // Calculate repetitions with generous safety margin
+      // Calculate repetitions with safety margin (reduced in performance mode)
       const baseRepetitions = Math.ceil(textAreaWidth / avgLLALWidth);
-      const repetitions = Math.max(baseRepetitions * 2.0, 12); // 100% safety margin, minimum 12
+      const safetyMargin = this.controlSettings.performanceMode.value ? 1.3 : 2.0; // Reduced margin in performance mode
+      const minRepetitions = this.controlSettings.performanceMode.value ? 8 : 12; // Fewer minimum repetitions
+      const repetitions = Math.max(baseRepetitions * safetyMargin, minRepetitions);
       
       // Create the full line of repeating text
       let fullText = '';
@@ -700,7 +745,10 @@ class RectAnimatedSketch {
           let amplitude = 1.0;
           let frequency = 1.0;
           
-          for (let octave = 0; octave < this.controlSettings.noiseOctaves.value; octave++) {
+          // Use fewer octaves in performance mode
+          const maxOctaves = this.controlSettings.performanceMode.value ? 2 : this.controlSettings.noiseOctaves.value;
+          
+          for (let octave = 0; octave < maxOctaves; octave++) {
             let noiseX, noiseY;
             
             if (this.controlSettings.positionalNoise.value) {
@@ -718,14 +766,49 @@ class RectAnimatedSketch {
               
               // Use grid-based coordinates: positional index and consistent row-based Y
               // This creates consistent patterns that don't depend on character widths
-              // Add animation time to X coordinate for horizontal movement
-              noiseX = (positionalGridIndex * this.controlSettings.noiseScale.value + this.animationTime * 0.2) * frequency;
-              noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
+              
+              const baseX = positionalGridIndex * this.controlSettings.noiseScale.value;
+              const baseY = row * this.controlSettings.noiseScale.value * this.controlSettings.yScaleFactor.value;
+              
+              // Simplified movement in performance mode
+              if (this.controlSettings.performanceMode.value) {
+                const timeSpeed = this.animationTime * 0.2;
+                const offsetX = Math.sin(timeSpeed) * 0.5;
+                const offsetY = Math.cos(timeSpeed * 0.8) * 0.2;
+                
+                noiseX = (baseX + offsetX) * frequency;
+                noiseY = (baseY + offsetY) * frequency;
+              } else {
+                // Multi-dimensional movement through noise space
+                const timeSpeed = this.animationTime * 0.3;
+                const offsetX = Math.cos(timeSpeed * 0.7) * 0.8 + Math.sin(timeSpeed * 1.3) * 0.4;
+                const offsetY = Math.sin(timeSpeed * 0.5) * 0.3 + Math.cos(timeSpeed * 0.9) * 0.2;
+                
+                noiseX = (baseX + offsetX) * frequency;
+                noiseY = (baseY + offsetY) * frequency;
+              }
             } else {
               // Use character index directly (creates pattern that deteriorates with width variation)
-              // Add animation time to X coordinate for horizontal movement
-              noiseX = (i * this.controlSettings.noiseScale.value + this.animationTime * 0.2) * frequency;
-              noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
+              const baseX = i * this.controlSettings.noiseScale.value;
+              const baseY = row * this.controlSettings.noiseScale.value * this.controlSettings.yScaleFactor.value;
+              
+              // Simplified movement in performance mode
+              if (this.controlSettings.performanceMode.value) {
+                const timeSpeed = this.animationTime * 0.2;
+                const offsetX = Math.sin(timeSpeed) * 0.5;
+                const offsetY = Math.cos(timeSpeed * 0.8) * 0.2;
+                
+                noiseX = (baseX + offsetX) * frequency;
+                noiseY = (baseY + offsetY) * frequency;
+              } else {
+                // Multi-dimensional movement through noise space
+                const timeSpeed = this.animationTime * 0.3;
+                const offsetX = Math.cos(timeSpeed * 0.7) * 0.8 + Math.sin(timeSpeed * 1.3) * 0.4;
+                const offsetY = Math.sin(timeSpeed * 0.5) * 0.3 + Math.cos(timeSpeed * 0.9) * 0.2;
+                
+                noiseX = (baseX + offsetX) * frequency;
+                noiseY = (baseY + offsetY) * frequency;
+              }
             }
             
             noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
@@ -743,7 +826,7 @@ class RectAnimatedSketch {
           // Clamp noise value to ensure it's within expected range
           noiseValue = Math.max(-1, Math.min(1, noiseValue));
           
-          // Map noise value (-1 to 1) to width range
+          // Map noise value (-1 to 1) to width range (50 to 200)
           let normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
           
           // If inverse mapping is enabled, invert the normalized noise
@@ -751,17 +834,16 @@ class RectAnimatedSketch {
             normalizedNoise = 1 - normalizedNoise;
           }
           
-          // Use predefined width steps for CSS classes with bounds checking
-          const widthIndex = Math.floor(normalizedNoise * this.staticSettings.wdths.length);
-          const clampedIndex = Math.max(0, Math.min(this.staticSettings.wdths.length - 1, widthIndex));
-          width = this.staticSettings.wdths[clampedIndex];
+          // Map to continuous width range from 50 to 200
+          width = 50 + (normalizedNoise * 150); // 50 + (0 to 1) * 150 = 50 to 200
         } else {
-          // Random predefined width
-          width = this.staticSettings.wdths[rndInt(0, this.staticSettings.wdths.length - 1)];
+          // Random width in continuous range
+          width = 50 + (Math.random() * 150); // 50 to 200
         }
         
-        // Set the width variation using CSS class
-        span.setAttribute('class', `st0 width-${width}`);
+        // Set the width variation using variable font axis
+        span.setAttribute('class', 'st0');
+        span.setAttribute('style', `font-variation-settings: "wdth" ${width.toFixed(1)};`);
         
         span.textContent = fullText[i];
         textPath.appendChild(span);
@@ -881,6 +963,13 @@ class RectAnimatedSketch {
         } else {
           this.stopAnimation();
         }
+      }
+      
+      // Special handling for performance mode toggle
+      if (key === 'performanceMode') {
+        // Reset frame counter when toggling performance mode
+        this.animationSettings.frameCount = 0;
+        console.log(`Performance mode ${config.value ? 'enabled' : 'disabled'}`);
       }
       
       this.updateSketch();
