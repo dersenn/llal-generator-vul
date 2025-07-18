@@ -549,51 +549,34 @@ class ArcSketch {
   }
 
   calculateOpacityClass(width, row, nRows, noiseValue) {
-    // Calculate transparency using a more organic, gradual approach
-    // Wider letters and lower rows have higher chance of transparency
+    // Simple logic: wider letters (higher noise) = more transparent
+    // Slim letters (width-50) always stay opaque (op-100)
     
-    // Width factor: wider letters are more likely to be transparent
-    const widthFactors = { 50: 0.15, 100: 0.35, 150: 0.55, 200: 0.75 };
-    const widthFactor = widthFactors[width] || 0.35;
+    // Width-50 always stays fully opaque
+    // if (width === 50) {
+    //   return 'op-100';
+    // }
     
-    // Row factor: lower rows (higher row numbers) are more likely to be transparent
-    // Row starts at 1, so normalize to 0-1 range
+    // Use noise value directly: higher noise = wider letters = more transparent
+    const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
+    
+    // Row factor: lower rows are more transparent
     const rowFactor = (row - 1) / (nRows - 1);
     
-    // Combine factors with a gentler curve
-    const baseProbability = (widthFactor * 0.7) + (rowFactor * 0.3);
+    // Combine noise and row position - higher values = more transparent
+    const transparencyFactor = (normalizedNoise * 0.7) + (rowFactor * 0.3);
     
-    // Use noise value to create organic variation
-    // Instead of hard threshold, use a smooth probability curve
-    const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
-
-    const inverseNoise = 1 - normalizedNoise;
+    // Threshold based on width - wider letters need lower threshold
+    const widthThresholds = { 50: 0.0, 100: 0.15, 150: 0.6, 200: 0.75 };
+    const threshold = widthThresholds[width] || 0.3;
     
-    // Add some per-character randomness to break up rigid patterns
-    const charRandomness = this.seed ? this.seed.rnd() : Math.random();
-    
-    // Create a smooth probability that combines all factors
-    const transparencyProbability = baseProbability * 0.6 + inverseNoise * 0.25 + charRandomness * 0.15;
-    
-    // Use a smoother threshold - most letters have some chance of transparency
-    const transparencyThreshold = 0.45; // Lower threshold = more transparency overall
-    
-    if (transparencyProbability > transparencyThreshold) {
-      // Use combined factors to determine opacity level
-      // Mix noise value with the probability for more variation
+    if (transparencyFactor > threshold) {
+      // Higher transparency factor = more transparent (lower opacity)
       const opacityLevels = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
-      
-      // Create opacity index from multiple sources for more variation
-      const opacityInfluence = (inverseNoise * 0.5) + (transparencyProbability * 0.3) + (charRandomness * 0.2);
-      const opacityIndex = Math.floor(opacityInfluence * opacityLevels.length);
+      const opacityIndex = Math.floor((1-transparencyFactor) * opacityLevels.length);
       const clampedIndex = Math.max(0, Math.min(opacityLevels.length - 1, opacityIndex));
       
       return `op-${opacityLevels[clampedIndex]}`;
-    }
-    
-    // Even "opaque" letters can have slight transparency for more organic feel
-    if (charRandomness > 0.8) {
-      return 'op-90';
     }
     
     // Default to full opacity
