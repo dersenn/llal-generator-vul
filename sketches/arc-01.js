@@ -35,6 +35,9 @@ class ArcSketch {
     this.createArcText();
     this.setupControls();
     
+    // Initialize advanced controls visibility after controls are set up
+    this.toggleAdvancedControls(this.controlSettings.showAdvancedControls.value);
+    
     // Enable auto-saving now that initialization is complete
     this.isInitializing = false;
     
@@ -103,7 +106,8 @@ class ArcSketch {
         step: 1,
         default: 120,
         value: 120,
-        locked: false
+        locked: false,
+        hidden: false
       },
       lineSpacing: {
         type: 'range',
@@ -113,7 +117,8 @@ class ArcSketch {
         step: 0.1,
         default: 1.5,
         value: 1.5,
-        locked: true
+        locked: true,
+        hidden: false
       },
       
       // Text controls
@@ -123,7 +128,8 @@ class ArcSketch {
         options: ['none', 'forward', 'backward', 'random'],
         default: 'forward',
         value: 'forward',
-        locked: true
+        locked: true,
+        hidden: false
       },
       
       // Noise controls
@@ -132,7 +138,8 @@ class ArcSketch {
         label: 'Angular noise',
         default: false,
         value: true,
-        locked: true
+        locked: true,
+        hidden: false
       },
       angularResolution: {
         type: 'range',
@@ -142,7 +149,8 @@ class ArcSketch {
         step: 0.05,
         default: 0.15,
         value: 0.15,
-        locked: true
+        locked: true,
+        hidden: true
       },
       yScaleFactor: {
         type: 'range',
@@ -152,7 +160,8 @@ class ArcSketch {
         step: 0.05,
         default: 0.45,
         value: 0.45,
-        locked: true
+        locked: true,
+        hidden: true
       },
       noiseScale: {
         type: 'range',
@@ -162,7 +171,8 @@ class ArcSketch {
         step: 0.001,
         default: 0.09,
         value: 0.09,
-        locked: false
+        locked: false,
+        hidden: false
       },
       noiseOctaves: {
         type: 'range',
@@ -172,7 +182,8 @@ class ArcSketch {
         step: 1,
         default: 3,
         value: 3,
-        locked: false
+        locked: false,
+        hidden: false
       },
       noisePersistence: {
         type: 'range',
@@ -182,7 +193,8 @@ class ArcSketch {
         step: 0.1,
         default: 0.6,
         value: 0.6,
-        locked: false
+        locked: false,
+        hidden: false
       },
       noiseContrast: {
         type: 'range',
@@ -192,7 +204,8 @@ class ArcSketch {
         step: 0.1,
         default: 0.9,
         value: 0.9,
-        locked: true
+        locked: true,
+        hidden: false
       },
       noiseLacunarity: {
         type: 'range',
@@ -202,14 +215,16 @@ class ArcSketch {
         step: 0.05,
         default: 0.75,
         value: 0.75,
-        locked: false
+        locked: false,
+        hidden: false
       },
       inverseWidthMapping: {
         type: 'toggle',
         label: 'Inverse width mapping',
         default: false,
         value: false,
-        locked: true
+        locked: true,
+        hidden: false
       },
 
       // Font size variation controls
@@ -218,7 +233,8 @@ class ArcSketch {
         label: 'Font size variation',
         default: false,
         value: false,
-        locked: true
+        locked: true,
+        hidden: false
       },
       fontSizeVariationAmount: {
         type: 'range',
@@ -228,7 +244,8 @@ class ArcSketch {
         step: 0.1,
         default: 0.3,
         value: 0.3,
-        locked: true
+        locked: true,
+        hidden: true
       },
       fontSizeNoiseScale: {
         type: 'range',
@@ -238,14 +255,16 @@ class ArcSketch {
         step: 0.005,
         default: 0.05,
         value: 0.05,
-        locked: true
+        locked: true,
+        hidden: true
       },
       adaptiveSpacing: {
         type: 'toggle',
         label: 'Adaptive row spacing',
         default: true,
         value: true,
-        locked: true
+        locked: true,
+        hidden: false
       },
 
       // Transparency controls
@@ -254,7 +273,8 @@ class ArcSketch {
         label: 'Use transparency',
         default: true,
         value: true,
-        locked: true
+        locked: true,
+        hidden: false
       },
 
       // Color controls
@@ -263,14 +283,26 @@ class ArcSketch {
         label: 'Background color',
         default: '#000000',
         value: '#000000',
-        locked: true
+        locked: true,
+        hidden: false
       },
       colFG: {
         type: 'color',
         label: 'Text color',
         default: '#ffffff',
         value: '#ffffff',
-        locked: true
+        locked: true,
+        hidden: false
+      },
+
+      // Control visibility
+      showAdvancedControls: {
+        type: 'toggle',
+        label: 'Show advanced controls',
+        default: false,
+        value: false,
+        locked: false,
+        hidden: false
       }
     };
 
@@ -911,7 +943,14 @@ class ArcSketch {
     
     checkbox.addEventListener('change', (e) => {
       config.value = e.target.checked;
-      this.updateSketch();
+      
+      // Special handling for showAdvancedControls toggle
+      if (key === 'showAdvancedControls') {
+        this.toggleAdvancedControls(e.target.checked);
+      } else {
+        this.updateSketch();
+      }
+      
       if (!this.isInitializing) this.saveSettings();
     });
 
@@ -978,6 +1017,12 @@ class ArcSketch {
     // Generate controls dynamically from controlSettings
     Object.keys(this.controlSettings).forEach(key => {
       const config = this.controlSettings[key];
+      
+      // Skip hidden controls
+      if (config.hidden) {
+        return;
+      }
+      
       let control;
       
       switch (config.type) {
@@ -1139,12 +1184,13 @@ class ArcSketch {
 
   saveSettings() {
     try {
-      // Only save the actual values and locked states, not configuration metadata
+      // Only save the actual values, locked states, and hidden states, not configuration metadata
       const valuesToSave = {};
       Object.keys(this.controlSettings).forEach(key => {
         valuesToSave[key] = {
           value: this.controlSettings[key].value,
-          locked: this.controlSettings[key].locked
+          locked: this.controlSettings[key].locked,
+          hidden: this.controlSettings[key].hidden
         };
         // For shiftTextPattern, also preserve the current options array
         if (key === 'shiftTextPattern' && this.controlSettings[key].options) {
@@ -1156,7 +1202,7 @@ class ArcSketch {
         controlSettings: valuesToSave
       };
       localStorage.setItem('arcSketchSettings', JSON.stringify(settingsData));
-      console.log('Settings saved successfully (values and locks only)');
+              console.log('Settings saved successfully (values, locks, and hidden states)');
     } catch (e) {
       console.error('Failed to save settings:', e);
     }
@@ -1173,12 +1219,15 @@ class ArcSketch {
             if (this.controlSettings[key] && settingsData.controlSettings[key]) {
               const savedControl = settingsData.controlSettings[key];
               
-              // Only restore value and locked, preserve min/max/step/default from code
+              // Only restore value, locked, and hidden, preserve min/max/step/default from code
               if (savedControl.hasOwnProperty('value')) {
                 this.controlSettings[key].value = savedControl.value;
               }
               if (savedControl.hasOwnProperty('locked')) {
                 this.controlSettings[key].locked = savedControl.locked;
+              }
+              if (savedControl.hasOwnProperty('hidden')) {
+                this.controlSettings[key].hidden = savedControl.hidden;
               }
               
               // Special handling for shiftTextPattern options
@@ -1188,7 +1237,7 @@ class ArcSketch {
             }
           });
         }
-        console.log('Settings loaded successfully (values and locks only, preserved ranges)');
+        console.log('Settings loaded successfully (values, locks, and hidden states, preserved ranges)');
       }
     } catch (e) {
       console.error('Failed to load settings:', e);
@@ -1200,12 +1249,13 @@ class ArcSketch {
     // This is more reliable than embedding in the SVG structure
     const svgElement = document.querySelector('svg');
     if (svgElement) {
-      // Only save values and locked states, not configuration metadata
+      // Only save values, locked states, and hidden states, not configuration metadata
       const valuesToSave = {};
       Object.keys(this.controlSettings).forEach(key => {
         valuesToSave[key] = {
           value: this.controlSettings[key].value,
-          locked: this.controlSettings[key].locked
+          locked: this.controlSettings[key].locked,
+          hidden: this.controlSettings[key].hidden
         };
         // For shiftTextPattern, also preserve the current options array
         if (key === 'shiftTextPattern' && this.controlSettings[key].options) {
@@ -1262,12 +1312,15 @@ class ArcSketch {
                   if (this.controlSettings[key] && settingsData.controlSettings[key]) {
                     const savedControl = settingsData.controlSettings[key];
                     
-                    // Only restore value and locked, preserve min/max/step/default from code
+                    // Only restore value, locked, and hidden, preserve min/max/step/default from code
                     if (savedControl.hasOwnProperty('value')) {
                       this.controlSettings[key].value = savedControl.value;
                     }
                     if (savedControl.hasOwnProperty('locked')) {
                       this.controlSettings[key].locked = savedControl.locked;
+                    }
+                    if (savedControl.hasOwnProperty('hidden')) {
+                      this.controlSettings[key].hidden = savedControl.hidden;
                     }
                     
                     // Special handling for shiftTextPattern options
@@ -1307,11 +1360,11 @@ class ArcSketch {
               this.noise = new SimplexNoise(noiseSeed);
               
               // Update UI controls to reflect loaded values
-              this.restoreControlsFromSettings();
+              this.refreshControlsPanel();
               
               this.updateSketch();
               this.updateHashDisplay(); // Update the displayed hash
-              console.log('Settings and seed loaded from SVG file (values and locks only, preserved ranges)');
+              console.log('Settings and seed loaded from SVG file (values, locks, and hidden states only, preserved ranges)');
             } else {
               console.log('No settings found in SVG file');
             }
@@ -1332,9 +1385,10 @@ class ArcSketch {
     // Reset all control settings to their original values and lock states
     Object.keys(this.controlSettings).forEach(key => {
       if (this.originalControlSettings[key]) {
-        // Restore both value and locked state from the original configuration
+        // Restore value, locked state, and hidden state from the original configuration
         this.controlSettings[key].value = this.originalControlSettings[key].value;
         this.controlSettings[key].locked = this.originalControlSettings[key].locked;
+        this.controlSettings[key].hidden = this.originalControlSettings[key].hidden;
       }
     });
 
@@ -1348,7 +1402,7 @@ class ArcSketch {
     this.isInitializing = false;
 
     // Update UI controls to reflect reset values
-    this.restoreControlsFromSettings();
+    this.refreshControlsPanel();
 
     // Update sketch with reset values
     this.updateSketch();
@@ -1481,6 +1535,39 @@ class ArcSketch {
     
     // Update the lock-all checkbox to reflect the current state
     this.updateLockAllCheckbox();
+  }
+
+  refreshControlsPanel() {
+    // Clear existing controls
+    if (this.controlsContainer) {
+      this.controlsContainer.innerHTML = '';
+    }
+    
+    // Recreate the controls panel
+    this.setupControls();
+  }
+
+  toggleAdvancedControls(show) {
+    // Define which controls are considered "advanced"
+    const advancedControls = [
+      'angularResolution',
+      'yScaleFactor',
+      'fontSizeVariationAmount',
+      'fontSizeNoiseScale',
+      'noiseContrast',
+      'noiseLacunarity',
+      'inverseWidthMapping'
+    ];
+    
+    // Toggle the hidden state of advanced controls
+    advancedControls.forEach(key => {
+      if (this.controlSettings[key]) {
+        this.controlSettings[key].hidden = !show;
+      }
+    });
+    
+    // Refresh the controls panel to show/hide the controls
+    this.refreshControlsPanel();
   }
 
   setAllLockStates(shouldLock) {
