@@ -258,8 +258,8 @@ class ArcSketch {
       colFG: {
         type: 'color',
         label: 'Text color',
-        default: '#ff794e',
-        value: '#ff794e',
+        default: '#ffffff',
+        value: '#ffffff',
         locked: true
       }
     };
