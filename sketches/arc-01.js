@@ -549,40 +549,51 @@ class ArcSketch {
   }
 
   calculateOpacityClass(width, row, nRows, noiseValue) {
-    // Calculate transparency chance based on width, row position, and raw noise value
+    // Calculate transparency using a more organic, gradual approach
     // Wider letters and lower rows have higher chance of transparency
     
     // Width factor: wider letters are more likely to be transparent
-    const widthFactors = { 50: 0.1, 100: 0.3, 150: 0.5, 200: 0.7 };
-    const widthFactor = widthFactors[width] || 0.3;
+    const widthFactors = { 50: 0.15, 100: 0.35, 150: 0.55, 200: 0.75 };
+    const widthFactor = widthFactors[width] || 0.35;
     
     // Row factor: lower rows (higher row numbers) are more likely to be transparent
     // Row starts at 1, so normalize to 0-1 range
     const rowFactor = (row - 1) / (nRows - 1);
     
-    // Combine factors
-    const combinedFactor = (widthFactor * 0.6) + (rowFactor * 0.4);
+    // Combine factors with a gentler curve
+    const baseProbability = (widthFactor * 0.7) + (rowFactor * 0.3);
     
-    // Use the raw noise value (between -1 and 1) to determine if transparent
-    // Normalize noise to 0-1 range for probability calculation
-    const normalizedNoise = (noiseValue + 1) / 2;
+    // Use noise value to create organic variation
+    // Instead of hard threshold, use a smooth probability curve
+    const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
+
+    const inverseNoise = 1 - normalizedNoise;
     
-    // Determine if this letter should be transparent
-    if (normalizedNoise < combinedFactor) {
-      // Use the raw noise value to determine opacity level more continuously
-      // Map noise value (-1 to 1) to opacity range (0 to 90)
-      // More negative noise = more transparent
-      // More positive noise = less transparent (but still some transparency)
-      
+    // Add some per-character randomness to break up rigid patterns
+    const charRandomness = this.seed ? this.seed.rnd() : Math.random();
+    
+    // Create a smooth probability that combines all factors
+    const transparencyProbability = baseProbability * 0.6 + inverseNoise * 0.25 + charRandomness * 0.15;
+    
+    // Use a smoother threshold - most letters have some chance of transparency
+    const transparencyThreshold = 0.45; // Lower threshold = more transparency overall
+    
+    if (transparencyProbability > transparencyThreshold) {
+      // Use combined factors to determine opacity level
+      // Mix noise value with the probability for more variation
       const opacityLevels = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
       
-      // Use noise value to pick opacity level
-      // Bias towards lower opacity for more negative noise values
-      const noiseInfluence = Math.abs(noiseValue); // 0 to 1
-      const opacityIndex = Math.floor(noiseInfluence * opacityLevels.length);
+      // Create opacity index from multiple sources for more variation
+      const opacityInfluence = (inverseNoise * 0.5) + (transparencyProbability * 0.3) + (charRandomness * 0.2);
+      const opacityIndex = Math.floor(opacityInfluence * opacityLevels.length);
       const clampedIndex = Math.max(0, Math.min(opacityLevels.length - 1, opacityIndex));
       
       return `op-${opacityLevels[clampedIndex]}`;
+    }
+    
+    // Even "opaque" letters can have slight transparency for more organic feel
+    if (charRandomness > 0.8) {
+      return 'op-90';
     }
     
     // Default to full opacity
@@ -724,10 +735,10 @@ class ArcSketch {
               // Center-based angular sampling using arc geometry
               // Calculate the actual angular position for this character relative to arc center
               const totalArcAngle = Math.abs(arcEnd - arcStart); // total arc span in degrees
-              const midAngle = (arcStart + arcEnd) / 2; // center angle of the arc
+              const midAngle = totalArcAngle / 2; // center angle of the arc
               
               // Character's angular position relative to arc center (0 at center, negative/positive at edges)
-              const charRelativeAngle = (i / fullText.length) * totalArcAngle - (totalArcAngle / 2);
+              const charRelativeAngle = (i / fullText.length) * totalArcAngle - midAngle;
               
               // Create angular grid centered around the arc middle
               const angularResolution = this.controlSettings.angularResolution.value; // degrees per grid cell
@@ -764,6 +775,9 @@ class ArcSketch {
           if (this.controlSettings.inverseWidthMapping.value) {
             normalizedNoise = 1 - normalizedNoise;
           }
+
+          // noiseValue = normalizedNoise;
+          // console.log('in: ', noiseValue);
           
           // Use predefined width steps for CSS classes with bounds checking
           const widthIndex = Math.floor(normalizedNoise * this.staticSettings.wdths.length);
@@ -775,6 +789,8 @@ class ArcSketch {
         }
         
         // Calculate opacity based on width, row position, and raw noise value
+        // console.log('out: ', noiseValue);
+
         const opacityClass = this.calculateOpacityClass(width, row, nRows, noiseValue);
         
         // Set the width variation and opacity using CSS classes
