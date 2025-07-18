@@ -561,19 +561,29 @@ class ArcSketch {
     const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
     
     // Row factor: lower rows are more transparent
-    const rowFactor = (row - 1) / (nRows - 1);
+    const linearRowFactor = (row - 1) / (nRows - 1); // 0 to 1
     
-    // Combine noise and row position - higher values = more transparent
-    const transparencyFactor = (normalizedNoise * 0.7) + (rowFactor * 0.3);
+    // Apply curve to make it less linear
+    // Low numbers = more transparency
+    const rowFactor = Math.pow(linearRowFactor, .6);
+
+    
+    // Combine noise and row position - higher values = more transparent    
+    const transparencyFactor = 1 - ((normalizedNoise * 0.7) + (rowFactor * 0.3));
     
     // Threshold based on width - wider letters need lower threshold
-    const widthThresholds = { 50: 0.0, 100: 0.15, 150: 0.6, 200: 0.75 };
-    const threshold = widthThresholds[width] || 0.3;
+    const widthThresholds = { 
+      50: 1, 
+      100: .1, 
+      150: .3, 
+      200: .7 
+    };
+    const threshold = widthThresholds[width] || 0;
     
-    if (transparencyFactor > threshold) {
+    if (1- transparencyFactor > threshold) {
       // Higher transparency factor = more transparent (lower opacity)
-      const opacityLevels = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
-      const opacityIndex = Math.floor((1-transparencyFactor) * opacityLevels.length);
+      const opacityLevels = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+      const opacityIndex = Math.floor((transparencyFactor) * opacityLevels.length);
       const clampedIndex = Math.max(0, Math.min(opacityLevels.length - 1, opacityIndex));
       
       return `op-${opacityLevels[clampedIndex]}`;
