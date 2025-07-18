@@ -305,6 +305,17 @@ class ArcSketch {
       .width-100 { font-family: 'LLALLogoLinear-Regular'; }
       .width-150 { font-family: 'LLALLogoLinear-Extended'; }
       .width-200 { font-family: 'LLALLogoLinear-Expanded'; }
+      .op-0 { opacity: 0; }
+      .op-10 { opacity: 0.1; }
+      .op-20 { opacity: 0.2; }
+      .op-30 { opacity: 0.3; }
+      .op-40 { opacity: 0.4; }
+      .op-50 { opacity: 0.5; }
+      .op-60 { opacity: 0.6; }
+      .op-70 { opacity: 0.7; }
+      .op-80 { opacity: 0.8; }
+      .op-90 { opacity: 0.9; }
+      .op-100 { opacity: 1; }
     `;
     
     style.textContent = cssRules;
@@ -537,6 +548,47 @@ class ArcSketch {
     return rowRadii;
   }
 
+  calculateOpacityClass(width, row, nRows, noiseValue) {
+    // Calculate transparency chance based on width, row position, and raw noise value
+    // Wider letters and lower rows have higher chance of transparency
+    
+    // Width factor: wider letters are more likely to be transparent
+    const widthFactors = { 50: 0.1, 100: 0.3, 150: 0.5, 200: 0.7 };
+    const widthFactor = widthFactors[width] || 0.3;
+    
+    // Row factor: lower rows (higher row numbers) are more likely to be transparent
+    // Row starts at 1, so normalize to 0-1 range
+    const rowFactor = (row - 1) / (nRows - 1);
+    
+    // Combine factors
+    const combinedFactor = (widthFactor * 0.6) + (rowFactor * 0.4);
+    
+    // Use the raw noise value (between -1 and 1) to determine if transparent
+    // Normalize noise to 0-1 range for probability calculation
+    const normalizedNoise = (noiseValue + 1) / 2;
+    
+    // Determine if this letter should be transparent
+    if (normalizedNoise < combinedFactor) {
+      // Use the raw noise value to determine opacity level more continuously
+      // Map noise value (-1 to 1) to opacity range (0 to 90)
+      // More negative noise = more transparent
+      // More positive noise = less transparent (but still some transparency)
+      
+      const opacityLevels = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];
+      
+      // Use noise value to pick opacity level
+      // Bias towards lower opacity for more negative noise values
+      const noiseInfluence = Math.abs(noiseValue); // 0 to 1
+      const opacityIndex = Math.floor(noiseInfluence * opacityLevels.length);
+      const clampedIndex = Math.max(0, Math.min(opacityLevels.length - 1, opacityIndex));
+      
+      return `op-${opacityLevels[clampedIndex]}`;
+    }
+    
+    // Default to full opacity
+    return 'op-100';
+  }
+
   createArcText() {
     const rOuter = 376 * this.mmToPx;
     const rInner = 100 * this.mmToPx;
@@ -658,9 +710,10 @@ class ArcSketch {
         
         // Use noise for width variations (always enabled)
         let width;
+        let noiseValue = 0; // Initialize outside the if block
+        
         if (this.staticSettings.useNoise && this.noise) {
           // Create multi-octave noise for more varied patterns
-          let noiseValue = 0;
           let amplitude = 1.0;
           let frequency = 1.0;
           
@@ -721,8 +774,11 @@ class ArcSketch {
           width = this.staticSettings.wdths[rndInt(0, this.staticSettings.wdths.length - 1)];
         }
         
-        // Set the width variation using CSS class
-        span.setAttribute('class', `st0 width-${width}`);
+        // Calculate opacity based on width, row position, and raw noise value
+        const opacityClass = this.calculateOpacityClass(width, row, nRows, noiseValue);
+        
+        // Set the width variation and opacity using CSS classes
+        span.setAttribute('class', `st0 width-${width} ${opacityClass}`);
         
         span.textContent = fullText[i];
         textPath.appendChild(span);
