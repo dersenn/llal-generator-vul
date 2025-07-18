@@ -588,9 +588,9 @@ class ArcSketch {
     
     // Width-based thresholds - determines if this width should be transparent at all
     const widthThresholds = { 
-      100: 0.9, // width-100: only becomes transparent if opacity < 0.9
-      150: 0.7, // width-150: only becomes transparent if opacity < 0.7
-      200: 0.3  // width-200: only becomes transparent if opacity < 0.3
+      100: 0.7, // width-100: only becomes transparent if opacity < 0.9
+      150: 0.9, // width-150: only becomes transparent if opacity < 0.7
+      200: 1  // width-200: only becomes transparent if opacity < 0.2
     };
     
     const threshold = widthThresholds[width] || 0;
