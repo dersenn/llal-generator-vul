@@ -79,7 +79,7 @@ class ArcSketch {
       useNoise: true,
       borderTop: 0,
       wdths: [50, 100, 150, 200],
-      opacityLevels: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+      opacityLevels: [5, 25, 50, 75, 100],
       nCols: 20,
       leftAngle: 24,
       rightAngle: 24,
@@ -559,11 +559,6 @@ class ArcSketch {
       return 'op-100'; // All letters fully opaque when transparency is disabled
     }
     
-    // Width-50 letters always stay fully opaque
-    if (width === 50) {
-      return 'op-100';
-    }
-    
     // Calculate base factors (all range from 0 to 1)
     const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
     const rowPosition = (row - 1) / (nRows - 1); // 0 to 1 (0 = first row, 1 = last row)
@@ -578,6 +573,7 @@ class ArcSketch {
     
     // Adjust weighting based on width - wider letters are more affected by row position
     const widthWeights = {
+      50: { noise: 0.9, row: 0.1 },
       100: { noise: 0.8, row: 0.2 },
       150: { noise: 0.6, row: 0.4 },
       200: { noise: 0.4, row: 0.6 }
@@ -588,9 +584,10 @@ class ArcSketch {
     
     // Width-based thresholds - determines if this width should be transparent at all
     const widthThresholds = { 
-      100: 0.7, // width-100: only becomes transparent if opacity < 0.9
-      150: 0.9, // width-150: only becomes transparent if opacity < 0.7
-      200: 1  // width-200: only becomes transparent if opacity < 0.2
+      50: 0.95, // width-50: small chance of transparency (only when opacity < 0.95)
+      100: 0.7, // width-100: only becomes transparent if opacity < 0.7
+      150: 0.9, // width-150: only becomes transparent if opacity < 0.9
+      200: 1    // width-200: only becomes transparent if opacity < 1
     };
     
     const threshold = widthThresholds[width] || 0;
