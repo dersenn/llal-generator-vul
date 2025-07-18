@@ -79,6 +79,7 @@ class ArcSketch {
       useNoise: true,
       borderTop: 0,
       wdths: [50, 100, 150, 200],
+      opacityLevels: [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
       nCols: 20,
       leftAngle: 24,
       rightAngle: 24,
@@ -306,6 +307,11 @@ class ArcSketch {
     const style = document.createElementNS(this.svg.ns, 'style');
     style.setAttribute('type', 'text/css');
     
+    // Generate opacity classes dynamically from staticSettings
+    const opacityClasses = this.staticSettings.opacityLevels.map(level => 
+      `.op-${level} { opacity: ${level / 100}; }`
+    ).join('\n      ');
+    
     // Define CSS classes for each width variation using distinct font files
     // Note: font-size is now applied per-row to allow for size variation
     const cssRules = `
@@ -314,17 +320,7 @@ class ArcSketch {
       .width-100 { font-family: 'LLALLogoLinear-Regular'; }
       .width-150 { font-family: 'LLALLogoLinear-Extended'; }
       .width-200 { font-family: 'LLALLogoLinear-Expanded'; }
-      .op-0 { opacity: 0; }
-      .op-10 { opacity: 0.1; }
-      .op-20 { opacity: 0.2; }
-      .op-30 { opacity: 0.3; }
-      .op-40 { opacity: 0.4; }
-      .op-50 { opacity: 0.5; }
-      .op-60 { opacity: 0.6; }
-      .op-70 { opacity: 0.7; }
-      .op-80 { opacity: 0.8; }
-      .op-90 { opacity: 0.9; }
-      .op-100 { opacity: 1; }
+      ${opacityClasses}
     `;
     
     style.textContent = cssRules;
@@ -563,43 +559,53 @@ class ArcSketch {
       return 'op-100'; // All letters fully opaque when transparency is disabled
     }
     
-    // Simple logic: wider letters (higher noise) = more transparent
-    // Slim letters (width-50) always stay opaque (op-100)
-    
-    // Use noise value directly: higher noise = wider letters = more transparent
-    const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
-    
-    // Row factor: lower rows are more transparent
-    const linearRowFactor = (row - 1) / (nRows - 1); // 0 to 1
-    
-    // Apply curve to make it less linear
-    // Low numbers = more transparency
-    const rowFactor = Math.pow(linearRowFactor, .6);
-
-    
-    // Combine noise and row position - higher values = more transparent    
-    const transparencyFactor = 1 - ((normalizedNoise * 0.7) + (rowFactor * 0.3));
-    
-    // Threshold based on width - wider letters need lower threshold
-    const widthThresholds = { 
-      50: 1, 
-      100: .1, 
-      150: .3, 
-      200: .7 
-    };
-    const threshold = widthThresholds[width] || 0;
-    
-    if (1- transparencyFactor > threshold) {
-      // Higher transparency factor = more transparent (lower opacity)
-      const opacityLevels = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-      const opacityIndex = Math.floor((transparencyFactor) * opacityLevels.length);
-      const clampedIndex = Math.max(0, Math.min(opacityLevels.length - 1, opacityIndex));
-      
-      return `op-${opacityLevels[clampedIndex]}`;
+    // Width-50 letters always stay fully opaque
+    if (width === 50) {
+      return 'op-100';
     }
     
-    // Default to full opacity
-    return 'op-100';
+    // Calculate base factors (all range from 0 to 1)
+    const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
+    const rowPosition = (row - 1) / (nRows - 1); // 0 to 1 (0 = first row, 1 = last row)
+    
+    // Apply curve to row position for more natural falloff
+    const rowFactor = Math.pow(rowPosition, 0.6);
+    
+    // Calculate opacity: higher noise = wider letters = lower opacity
+    // Lower row position = lower opacity
+    const noiseOpacity = 1 - normalizedNoise; // Higher noise = lower opacity
+    const rowOpacity = 1 - rowFactor; // Lower rows = lower opacity
+    
+    // Adjust weighting based on width - wider letters are more affected by row position
+    const widthWeights = {
+      100: { noise: 0.8, row: 0.2 },
+      150: { noise: 0.6, row: 0.4 },
+      200: { noise: 0.4, row: 0.6 }
+    };
+    
+    const weights = widthWeights[width] || { noise: 0.8, row: 0.2 };
+    const finalOpacity = (noiseOpacity * weights.noise) + (rowOpacity * weights.row);
+    
+    // Width-based thresholds - determines if this width should be transparent at all
+    const widthThresholds = { 
+      100: 0.9, // width-100: only becomes transparent if opacity < 0.9
+      150: 0.7, // width-150: only becomes transparent if opacity < 0.7
+      200: 0.3  // width-200: only becomes transparent if opacity < 0.3
+    };
+    
+    const threshold = widthThresholds[width] || 0;
+    
+    // If opacity is above threshold, stay fully opaque
+    if (finalOpacity >= threshold) {
+      return 'op-100';
+    }
+    
+    // Below threshold: map opacity to discrete levels
+    const opacityLevels = this.staticSettings.opacityLevels;
+    const opacityIndex = Math.floor(finalOpacity * opacityLevels.length);
+    const clampedIndex = Math.max(0, Math.min(opacityLevels.length - 1, opacityIndex));
+    
+    return `op-${opacityLevels[clampedIndex]}`;
   }
 
   createArcText() {
