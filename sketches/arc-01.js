@@ -247,6 +247,15 @@ class ArcSketch {
         locked: true
       },
 
+      // Transparency controls
+      useTransparency: {
+        type: 'toggle',
+        label: 'Use transparency',
+        default: true,
+        value: true,
+        locked: true
+      },
+
       // Color controls
       colBG: {
         type: 'color',
@@ -549,13 +558,13 @@ class ArcSketch {
   }
 
   calculateOpacityClass(width, row, nRows, noiseValue) {
+    // Check if transparency is enabled
+    if (!this.controlSettings.useTransparency.value) {
+      return 'op-100'; // All letters fully opaque when transparency is disabled
+    }
+    
     // Simple logic: wider letters (higher noise) = more transparent
     // Slim letters (width-50) always stay opaque (op-100)
-    
-    // Width-50 always stays fully opaque
-    // if (width === 50) {
-    //   return 'op-100';
-    // }
     
     // Use noise value directly: higher noise = wider letters = more transparent
     const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
