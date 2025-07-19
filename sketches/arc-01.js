@@ -118,7 +118,7 @@ class ArcSketch {
         default: 1.5,
         value: 1.5,
         locked: true,
-        hidden: false
+        hidden: true
       },
       
       // Text controls
@@ -129,7 +129,7 @@ class ArcSketch {
         default: 'forward',
         value: 'forward',
         locked: true,
-        hidden: false
+        hidden: true
       },
       
       // Noise controls
@@ -234,7 +234,7 @@ class ArcSketch {
         default: false,
         value: false,
         locked: true,
-        hidden: false
+        hidden: true
       },
       fontSizeVariationAmount: {
         type: 'range',
@@ -264,7 +264,7 @@ class ArcSketch {
         default: true,
         value: true,
         locked: true,
-        hidden: false
+        hidden: true
       },
 
       // Transparency controls
@@ -301,7 +301,7 @@ class ArcSketch {
         label: 'Show advanced controls',
         default: false,
         value: false,
-        locked: false,
+        locked: true,
         hidden: false
       }
     };
@@ -1548,21 +1548,24 @@ class ArcSketch {
   }
 
   toggleAdvancedControls(show) {
-    // Define which controls are considered "advanced"
-    const advancedControls = [
-      'angularResolution',
-      'yScaleFactor',
-      'fontSizeVariationAmount',
-      'fontSizeNoiseScale',
-      'noiseContrast',
-      'noiseLacunarity',
-      'inverseWidthMapping'
-    ];
+    // Store the original hidden states on first run
+    if (!this.originalHiddenStates) {
+      this.originalHiddenStates = {};
+      Object.keys(this.controlSettings).forEach(key => {
+        this.originalHiddenStates[key] = this.controlSettings[key].hidden;
+      });
+    }
     
-    // Toggle the hidden state of advanced controls
-    advancedControls.forEach(key => {
-      if (this.controlSettings[key]) {
-        this.controlSettings[key].hidden = !show;
+    // Toggle visibility for all controls based on their original hidden state
+    Object.keys(this.controlSettings).forEach(key => {
+      if (key === 'showAdvancedControls') return; // Skip the toggle itself
+      
+      if (show) {
+        // Show all controls (set all to visible)
+        this.controlSettings[key].hidden = false;
+      } else {
+        // Restore original hidden states
+        this.controlSettings[key].hidden = this.originalHiddenStates[key];
       }
     });
     
