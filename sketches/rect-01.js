@@ -48,7 +48,7 @@ class RectSketch {
     const mmToPx = DPI / 25.4; // 1 mm in px at chosen DPI
 
     // MEASUREMENTS FOR PRINT
-    const docWidth = 420; // mm
+    const docWidth = 210; // mm
     const docHeight = 297; // mm
 
     // Set SVG size to document size in px at chosen DPI
@@ -77,10 +77,10 @@ class RectSketch {
     this.staticSettings = {
       useFilter: false,
       useNoise: true,
-      marginTop: 20,
-      marginBottom: 20,
-      marginLeft: 30,
-      marginRight: 30,
+      marginTop: 0,
+      marginBottom: 0,
+      marginLeft: 0,
+      marginRight: 0,
       wdths: [50, 100, 150, 200],
       opacityLevels: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
       nCols: 20,
@@ -99,11 +99,11 @@ class RectSketch {
       nRows: {
         type: 'range',
         label: 'Number of lines',
-        min: 90,
-        max: 240,
+        min: 60,
+        max: 180,
         step: 1,
-        default: 150,
-        value: 150,
+        default: 120,
+        value: 120,
         locked: false,
         hidden: false
       },
@@ -142,13 +142,13 @@ class RectSketch {
       positionalResolution: {
         type: 'range',
         label: 'Positional grid resolution',
-        min: 0.05,
-        max: 2,
-        step: 0.05,
-        default: 0.6,
-        value: 0.6,
+        min: 0.001,
+        max: 0.1,
+        step: 0.001,
+        default: 0.01,
+        value: 0.01,
         locked: true,
-        hidden: true
+        hidden: false
       },
       yScaleFactor: {
         type: 'range',
@@ -156,8 +156,8 @@ class RectSketch {
         min: 0.05,
         max: 5.0,
         step: 0.05,
-        default: 0.45,
-        value: 0.45,
+        default: 2.1,
+        value: 2.1,
         locked: true,
         hidden: true
       },
@@ -648,9 +648,9 @@ class RectSketch {
       const charsPerLLAL = txt.length;
       const avgLLALWidth = avgCharWidth * charsPerLLAL;
       
-      // Calculate repetitions with generous safety margin
+      // Calculate exact repetitions needed (no safety margin needed for uniform horizontal lines)
       const baseRepetitions = Math.ceil(textAreaWidth / avgLLALWidth);
-      const repetitions = Math.max(baseRepetitions * 2.0, 12); // 100% safety margin, minimum 12
+      const repetitions = Math.max(baseRepetitions + 1, 6); // Just +1 for rounding safety, minimum 6
       
       // Create the full line of repeating text
       let fullText = '';
@@ -715,19 +715,16 @@ class RectSketch {
             
             if (this.controlSettings.positionalNoise.value) {
               // Center-based positional sampling using horizontal geometry
-              // Calculate the relative position from the center of the text area
-              const totalTextLength = fullText.length;
-              const centerIndex = totalTextLength / 2;
-              
-              // Character's position relative to center (0 at center, negative/positive at edges)
-              const charRelativePosition = i - centerIndex;
+              // Use proportional position relative to center for better consistency
+              // Character's position relative to center (-0.5 to 0.5, centered at 0)
+              const charRelativePosition = (i / fullText.length) - 0.5;
               
               // Create positional grid centered around the text middle
               const positionalResolution = this.controlSettings.positionalResolution.value; // units per grid cell
               const positionalGridIndex = Math.floor(charRelativePosition / positionalResolution);
               
               // Use grid-based coordinates: positional index and consistent row-based Y
-              // This creates consistent patterns that don't depend on character widths
+              // This creates consistent patterns that don't depend on character widths or text length
               noiseX = positionalGridIndex * this.controlSettings.noiseScale.value * frequency;
               noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
             } else {
