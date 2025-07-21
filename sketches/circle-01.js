@@ -115,7 +115,7 @@ class CircleSketch {
         default: 95,
         value: 95,
         locked: true,
-        hidden: false
+        hidden: true
       },
       innerDiameter: {
         type: 'range',
@@ -126,15 +126,15 @@ class CircleSketch {
         default: 15,
         value: 15,
         locked: true,
-        hidden: false
+        hidden: true
       },
       
       // Layout controls
       nRows: {
         type: 'range',
         label: 'Number of lines',
-        min: 3,
-        max: 45,
+        min: 12,
+        max: 60,
         step: 1,
         default: 24,
         value: 24,
@@ -694,11 +694,7 @@ class CircleSketch {
       }
     }
     
-    // Performance check - warn if too many elements will be created
-    const totalElements = (nRows - 1) * 50 * 4; // worst case: rows * max repetitions * chars per LLAL
-    if (totalElements > 8000) {
-      console.warn(`Performance warning: Circle sketch may create ~${totalElements} DOM elements for ${nRows-1} rows. Consider reducing rows.`);
-    }
+
 
     // Generate text for each line - follow the circle using textPath
     for (let row = 1; row < nRows; row++) {
@@ -722,10 +718,21 @@ class CircleSketch {
       const charsPerLLAL = txt.length;
       const avgLLALWidth = avgCharWidth * charsPerLLAL;
       
-      // Calculate repetitions with performance limits
+      // Calculate repetitions with much more generous safety margin for smaller fonts
       const baseRepetitions = Math.ceil(circumference / avgLLALWidth);
-      const safetyRepetitions = Math.max(baseRepetitions * 1.5, 12); // 50% safety margin, minimum 12
-      const repetitions = Math.min(Math.ceil(safetyRepetitions), 50); // Cap at 50 repetitions max and ensure integer
+      
+      // Use dynamic safety margin based on font size - smaller fonts need more safety
+      const fontSizeRatio = actualFontSize / parseFloat(this.fSize); // ratio compared to base font size
+      const dynamicSafetyMargin = fontSizeRatio < 0.7 ? 4.0 : 3.0; // 4x margin for very small fonts, 3x otherwise
+      
+      // Calculate repetitions with generous safety margin (like arc sketch)
+      const safetyRepetitions = Math.max(baseRepetitions * dynamicSafetyMargin, 24); // Minimum 24 repetitions
+      
+      // Use dynamic cap based on circumference - larger circles can handle more repetitions
+      const circumferenceBasedCap = Math.min(Math.ceil(circumference / 5), 200); // Cap grows with circumference, max 200
+      const repetitions = Math.min(Math.ceil(safetyRepetitions), Math.max(circumferenceBasedCap, 50)); // At least 50, up to circumference-based cap
+      
+
       
       // Create the full line of repeating text
       let fullText = '';
