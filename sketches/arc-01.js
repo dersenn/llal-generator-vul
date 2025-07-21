@@ -131,6 +131,14 @@ class ArcSketch {
         locked: true,
         hidden: true
       },
+      centerText: {
+        type: 'toggle',
+        label: 'Center text on paths',
+        default: true,
+        value: true,
+        locked: true,
+        hidden: false
+      },
       
       // Noise controls
       angularNoise: {
@@ -750,10 +758,15 @@ class ArcSketch {
       const rowFontSize = rowFontSizes[row - 1]; // rowFontSizes is 0-indexed, row starts from 1
       text.setAttribute('style', `font-size: ${rowFontSize}px`);
       
+      // Apply text centering if enabled
+      if (this.controlSettings.centerText.value) {
+        text.setAttribute('text-anchor', 'middle');
+      }
+      
       // Create textPath element
       const textPath = document.createElementNS(this.svg.ns, 'textPath');
       textPath.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `#${pathId}`);
-      textPath.setAttribute('startOffset', '0%');
+      textPath.setAttribute('startOffset', this.controlSettings.centerText.value ? '50%' : '0%');
       
       // Create individual tspans for each letter with width variations
       for (let i = 0; i < fullText.length; i++) {
@@ -1436,6 +1449,7 @@ class ArcSketch {
     this.controlSettings.nRows.locked = document.getElementById('nRows-lock')?.checked || false;
     this.controlSettings.lineSpacing.locked = document.getElementById('lineSpacing-lock')?.checked || false;
     this.controlSettings.shiftTextPattern.locked = document.getElementById('shiftTextPattern-lock')?.checked || false;
+    this.controlSettings.centerText.locked = document.getElementById('centerText-lock')?.checked || false;
     this.controlSettings.angularNoise.locked = document.getElementById('angularNoise-lock')?.checked || false;
     this.controlSettings.angularResolution.locked = document.getElementById('angularResolution-lock')?.checked || false;
     this.controlSettings.yScaleFactor.locked = document.getElementById('yScaleFactor-lock')?.checked || false;
@@ -1457,6 +1471,7 @@ class ArcSketch {
       nRows: this.controlSettings.nRows.locked,
       lineSpacing: this.controlSettings.lineSpacing.locked,
       shiftTextPattern: this.controlSettings.shiftTextPattern.locked,
+      centerText: this.controlSettings.centerText.locked,
       angularNoise: this.controlSettings.angularNoise.locked,
       angularResolution: this.controlSettings.angularResolution.locked,
       yScaleFactor: this.controlSettings.yScaleFactor.locked,

@@ -172,6 +172,14 @@ class CircleSketch {
         locked: true,
         hidden: false
       },
+      centerText: {
+        type: 'toggle',
+        label: 'Center text on paths',
+        default: true,
+        value: true,
+        locked: true,
+        hidden: false
+      },
       
       // Noise controls
       angularNoise: {
@@ -759,10 +767,15 @@ class CircleSketch {
       const rowFontSize = rowFontSizes[row - 1]; // rowFontSizes is 0-indexed, row starts from 1
       text.setAttribute('style', `font-size: ${rowFontSize}px`);
       
+      // Apply text centering if enabled
+      if (this.controlSettings.centerText.value) {
+        text.setAttribute('text-anchor', 'middle');
+      }
+      
       // Create textPath element
       const textPath = document.createElementNS(this.svg.ns, 'textPath');
       textPath.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `#${pathId}`);
-      textPath.setAttribute('startOffset', '0%');
+      textPath.setAttribute('startOffset', this.controlSettings.centerText.value ? '50%' : '0%');
       
       // Create individual tspans for each letter with width variations
       for (let i = 0; i < fullText.length; i++) {

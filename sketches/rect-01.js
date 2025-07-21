@@ -129,6 +129,14 @@ class RectSketch {
         locked: true,
         hidden: true
       },
+      centerText: {
+        type: 'toggle',
+        label: 'Center text on paths',
+        default: true,
+        value: true,
+        locked: true,
+        hidden: false
+      },
       
       // Noise controls
       positionalNoise: {
@@ -692,10 +700,15 @@ class RectSketch {
       const rowFontSize = rowFontSizes[row];
       text.setAttribute('style', `font-size: ${rowFontSize}px`);
       
+      // Apply text centering if enabled
+      if (this.controlSettings.centerText.value) {
+        text.setAttribute('text-anchor', 'middle');
+      }
+      
       // Create textPath element
       const textPath = document.createElementNS(this.svg.ns, 'textPath');
       textPath.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `#${pathId}`);
-      textPath.setAttribute('startOffset', '0%');
+      textPath.setAttribute('startOffset', this.controlSettings.centerText.value ? '50%' : '0%');
       
       // Create individual tspans for each letter with width variations
       for (let i = 0; i < fullText.length; i++) {
@@ -1361,6 +1374,7 @@ class RectSketch {
     this.controlSettings.nRows.locked = document.getElementById('nRows-lock')?.checked || false;
     this.controlSettings.lineSpacing.locked = document.getElementById('lineSpacing-lock')?.checked || false;
     this.controlSettings.shiftTextPattern.locked = document.getElementById('shiftTextPattern-lock')?.checked || false;
+    this.controlSettings.centerText.locked = document.getElementById('centerText-lock')?.checked || false;
     this.controlSettings.positionalNoise.locked = document.getElementById('positionalNoise-lock')?.checked || false;
     this.controlSettings.positionalResolution.locked = document.getElementById('positionalResolution-lock')?.checked || false;
     this.controlSettings.yScaleFactor.locked = document.getElementById('yScaleFactor-lock')?.checked || false;
@@ -1382,6 +1396,7 @@ class RectSketch {
       nRows: this.controlSettings.nRows.locked,
       lineSpacing: this.controlSettings.lineSpacing.locked,
       shiftTextPattern: this.controlSettings.shiftTextPattern.locked,
+      centerText: this.controlSettings.centerText.locked,
       positionalNoise: this.controlSettings.positionalNoise.locked,
       positionalResolution: this.controlSettings.positionalResolution.locked,
       yScaleFactor: this.controlSettings.yScaleFactor.locked,
