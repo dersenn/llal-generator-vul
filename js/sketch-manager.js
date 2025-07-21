@@ -60,6 +60,12 @@ class SketchManager {
         displayName: 'Firework 01 (alt)',
         class: FireworkSketch,
         description: 'Firework pattern with LLAL text'
+      },
+      {
+        name: 'circle-01',
+        displayName: 'Kreismuster',
+        class: CircleSketch,
+        description: 'Full circle text layout with inner/outer diameter controls'
       }
       // To add a new sketch, just add an entry here:
       // {
