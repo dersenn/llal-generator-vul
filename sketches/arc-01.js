@@ -312,6 +312,9 @@ class ArcSketch {
     // Load saved settings if available
     this.loadSettings();
     
+    // Initialize advanced controls visibility state (separate from settings object)
+    this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
+    
     // Flag to prevent auto-saving during initial setup
     this.isInitializing = true;
 
@@ -1018,8 +1021,9 @@ class ArcSketch {
     Object.keys(this.controlSettings).forEach(key => {
       const config = this.controlSettings[key];
       
-      // Skip hidden controls
-      if (config.hidden) {
+      // Skip hidden controls unless advanced controls are enabled
+      // The hidden property in settings defines which controls are "advanced"
+      if (config.hidden && !this.showAdvancedControls) {
         return;
       }
       
@@ -1359,6 +1363,9 @@ class ArcSketch {
               const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
               this.noise = new SimplexNoise(noiseSeed);
               
+              // Sync the advanced controls visibility state
+              this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
+              
               // Update UI controls to reflect loaded values
               this.refreshControlsPanel();
               
@@ -1397,6 +1404,9 @@ class ArcSketch {
 
     // Reinitialize noise (always enabled)
     this.noise = new SimplexNoise(this.originalNoiseSeed);
+
+    // Sync the advanced controls visibility state
+    this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
 
     // Ensure we're not in initialization mode
     this.isInitializing = false;
@@ -1469,6 +1479,9 @@ class ArcSketch {
     // This method is called by the sketch manager when reloading with preserved settings
     // It updates all control inputs to reflect the current settings
     if (!this.controlSettings) return;
+    
+    // Sync the advanced controls visibility state
+    this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
     
     // Data-driven approach - update all controls based on their type
     Object.keys(this.controlSettings).forEach(key => {
@@ -1548,26 +1561,8 @@ class ArcSketch {
   }
 
   toggleAdvancedControls(show) {
-    // Store the original hidden states on first run
-    if (!this.originalHiddenStates) {
-      this.originalHiddenStates = {};
-      Object.keys(this.controlSettings).forEach(key => {
-        this.originalHiddenStates[key] = this.controlSettings[key].hidden;
-      });
-    }
-    
-    // Toggle visibility for all controls based on their original hidden state
-    Object.keys(this.controlSettings).forEach(key => {
-      if (key === 'showAdvancedControls') return; // Skip the toggle itself
-      
-      if (show) {
-        // Show all controls (set all to visible)
-        this.controlSettings[key].hidden = false;
-      } else {
-        // Restore original hidden states
-        this.controlSettings[key].hidden = this.originalHiddenStates[key];
-      }
-    });
+    // Store the current toggle state without modifying the settings object
+    this.showAdvancedControls = show;
     
     // Refresh the controls panel to show/hide the controls
     this.refreshControlsPanel();

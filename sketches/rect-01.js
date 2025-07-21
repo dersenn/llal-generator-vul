@@ -104,7 +104,8 @@ class RectSketch {
         step: 1,
         default: 150,
         value: 150,
-        locked: false
+        locked: false,
+        hidden: false
       },
       lineSpacing: {
         type: 'range',
@@ -114,7 +115,8 @@ class RectSketch {
         step: 0.1,
         default: 1.5,
         value: 1.5,
-        locked: true
+        locked: true,
+        hidden: true
       },
       
       // Text controls
@@ -124,7 +126,8 @@ class RectSketch {
         options: ['none', 'forward', 'backward', 'random'],
         default: 'forward',
         value: 'forward',
-        locked: true
+        locked: true,
+        hidden: true
       },
       
       // Noise controls
@@ -133,7 +136,8 @@ class RectSketch {
         label: 'Positional noise',
         default: false,
         value: true,
-        locked: true
+        locked: true,
+        hidden: false
       },
       positionalResolution: {
         type: 'range',
@@ -143,7 +147,8 @@ class RectSketch {
         step: 0.05,
         default: 0.6,
         value: 0.6,
-        locked: true
+        locked: true,
+        hidden: true
       },
       yScaleFactor: {
         type: 'range',
@@ -153,7 +158,8 @@ class RectSketch {
         step: 0.05,
         default: 0.45,
         value: 0.45,
-        locked: true
+        locked: true,
+        hidden: true
       },
       noiseScale: {
         type: 'range',
@@ -163,7 +169,8 @@ class RectSketch {
         step: 0.001,
         default: 0.09,
         value: 0.09,
-        locked: false
+        locked: false,
+        hidden: false
       },
       noiseOctaves: {
         type: 'range',
@@ -173,7 +180,8 @@ class RectSketch {
         step: 1,
         default: 3,
         value: 3,
-        locked: false
+        locked: false,
+        hidden: false
       },
       noisePersistence: {
         type: 'range',
@@ -183,7 +191,8 @@ class RectSketch {
         step: 0.1,
         default: 0.6,
         value: 0.6,
-        locked: false
+        locked: false,
+        hidden: false
       },
       noiseContrast: {
         type: 'range',
@@ -193,7 +202,8 @@ class RectSketch {
         step: 0.1,
         default: 0.9,
         value: 0.9,
-        locked: true
+        locked: true,
+        hidden: false
       },
       noiseLacunarity: {
         type: 'range',
@@ -203,14 +213,16 @@ class RectSketch {
         step: 0.05,
         default: 0.75,
         value: 0.75,
-        locked: false
+        locked: false,
+        hidden: false
       },
       inverseWidthMapping: {
         type: 'toggle',
         label: 'Inverse width mapping',
         default: false,
         value: false,
-        locked: true
+        locked: true,
+        hidden: false
       },
 
       // Font size variation controls
@@ -219,7 +231,8 @@ class RectSketch {
         label: 'Font size variation',
         default: false,
         value: false,
-        locked: true
+        locked: true,
+        hidden: true
       },
       fontSizeVariationAmount: {
         type: 'range',
@@ -229,7 +242,8 @@ class RectSketch {
         step: 0.1,
         default: 0.3,
         value: 0.3,
-        locked: true
+        locked: true,
+        hidden: true
       },
       fontSizeNoiseScale: {
         type: 'range',
@@ -239,14 +253,16 @@ class RectSketch {
         step: 0.005,
         default: 0.05,
         value: 0.05,
-        locked: true
+        locked: true,
+        hidden: true
       },
       adaptiveSpacing: {
         type: 'toggle',
         label: 'Adaptive row spacing',
         default: true,
         value: true,
-        locked: true
+        locked: true,
+        hidden: true
       },
 
       // Transparency controls
@@ -255,7 +271,8 @@ class RectSketch {
         label: 'Use transparency',
         default: true,
         value: true,
-        locked: true
+        locked: true,
+        hidden: false
       },
 
       // Color controls
@@ -264,14 +281,26 @@ class RectSketch {
         label: 'Background color',
         default: '#000000',
         value: '#000000',
-        locked: true
+        locked: true,
+        hidden: false
       },
       colFG: {
         type: 'color',
         label: 'Text color',
         default: '#ff794e',
         value: '#ff794e',
-        locked: true
+        locked: true,
+        hidden: false
+      },
+
+      // Control visibility
+      showAdvancedControls: {
+        type: 'toggle',
+        label: 'Show advanced controls',
+        default: false,
+        value: false,
+        locked: true,
+        hidden: false
       }
     };
 
@@ -280,6 +309,9 @@ class RectSketch {
     
     // Load saved settings if available
     this.loadSettings();
+    
+    // Initialize advanced controls visibility state (separate from settings object)
+    this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
     
     // Flag to prevent auto-saving during initial setup
     this.isInitializing = true;
@@ -852,7 +884,14 @@ class RectSketch {
     
     checkbox.addEventListener('change', (e) => {
       config.value = e.target.checked;
-      this.updateSketch();
+      
+      // Special handling for showAdvancedControls toggle
+      if (key === 'showAdvancedControls') {
+        this.toggleAdvancedControls(e.target.checked);
+      } else {
+        this.updateSketch();
+      }
+      
       if (!this.isInitializing) this.saveSettings();
     });
 
@@ -919,6 +958,13 @@ class RectSketch {
     // Generate controls dynamically from controlSettings
     Object.keys(this.controlSettings).forEach(key => {
       const config = this.controlSettings[key];
+      
+      // Skip hidden controls unless advanced controls are enabled
+      // The hidden property in settings defines which controls are "advanced"
+      if (config.hidden && !this.showAdvancedControls) {
+        return;
+      }
+      
       let control;
       
       switch (config.type) {
@@ -1246,6 +1292,9 @@ class RectSketch {
               const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
               this.noise = new SimplexNoise(noiseSeed);
               
+              // Sync the advanced controls visibility state
+              this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
+              
               // Update UI controls to reflect loaded values
               this.restoreControlsFromSettings();
               
@@ -1283,6 +1332,9 @@ class RectSketch {
 
     // Reinitialize noise (always enabled)
     this.noise = new SimplexNoise(this.originalNoiseSeed);
+
+    // Sync the advanced controls visibility state
+    this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
 
     // Ensure we're not in initialization mode
     this.isInitializing = false;
@@ -1355,6 +1407,9 @@ class RectSketch {
     // This method is called by the sketch manager when reloading with preserved settings
     // It updates all control inputs to reflect the current settings
     if (!this.controlSettings) return;
+    
+    // Sync the advanced controls visibility state
+    this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
     
     // Data-driven approach - update all controls based on their type
     Object.keys(this.controlSettings).forEach(key => {
@@ -1460,6 +1515,14 @@ class RectSketch {
     this.lockAllCheckbox.indeterminate = someLocked && !allLocked;
   }
 
+  toggleAdvancedControls(show) {
+    // Store the current toggle state without modifying the settings object
+    this.showAdvancedControls = show;
+    
+    // Refresh the controls panel to show/hide the controls
+    this.refreshControlsPanel();
+  }
+
   randomizeSettings() {
     // Generate random values only for unlocked parameters
     Object.keys(this.controlSettings).forEach(key => {
@@ -1545,5 +1608,15 @@ class RectSketch {
           break;
       }
     });
+  }
+
+  refreshControlsPanel() {
+    // Clear existing controls
+    if (this.controlsContainer) {
+      this.controlsContainer.innerHTML = '';
+    }
+    
+    // Recreate the controls panel
+    this.setupControls();
   }
 } 

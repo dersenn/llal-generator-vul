@@ -353,6 +353,9 @@ class CircleSketch {
     // Load saved settings if available
     this.loadSettings();
     
+    // Initialize advanced controls visibility state (separate from settings object)
+    this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
+    
     // Override problematic saved settings for performance
     if (this.controlSettings.nRows.value > 50) {
       console.log(`Circle sketch: Reducing excessive rows from ${this.controlSettings.nRows.value} to 40 for performance`);
@@ -1018,8 +1021,9 @@ class CircleSketch {
     Object.keys(this.controlSettings).forEach(key => {
       const config = this.controlSettings[key];
       
-      // Skip hidden controls
-      if (config.hidden) {
+      // Skip hidden controls unless advanced controls are enabled
+      // The hidden property in settings defines which controls are "advanced"
+      if (config.hidden && !this.showAdvancedControls) {
         return;
       }
       
@@ -1357,6 +1361,9 @@ class CircleSketch {
               const noiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
               this.noise = new SimplexNoise(noiseSeed);
               
+              // Sync the advanced controls visibility state
+              this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
+              
               // Update UI controls to reflect loaded values
               this.refreshControlsPanel();
               
@@ -1395,6 +1402,9 @@ class CircleSketch {
 
     // Reinitialize noise (always enabled)
     this.noise = new SimplexNoise(this.originalNoiseSeed);
+
+    // Sync the advanced controls visibility state
+    this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
 
     // Ensure we're not in initialization mode
     this.isInitializing = false;
@@ -1441,6 +1451,9 @@ class CircleSketch {
     // This method is called by the sketch manager when reloading with preserved settings
     // It updates all control inputs to reflect the current settings
     if (!this.controlSettings) return;
+    
+    // Sync the advanced controls visibility state
+    this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
     
     // Data-driven approach - update all controls based on their type
     Object.keys(this.controlSettings).forEach(key => {
@@ -1520,25 +1533,8 @@ class CircleSketch {
   }
 
   toggleAdvancedControls(show) {
-    // Define which controls should be hidden when advanced controls are OFF
-    const advancedControlKeys = [
-      'shiftTextPattern', 'angularResolution', 'yScaleFactor', 
-      'fontSizeVariation', 'fontSizeVariationAmount', 'fontSizeNoiseScale', 
-      'adaptiveSpacing'
-    ];
-    
-    // Toggle visibility based on the show parameter
-    Object.keys(this.controlSettings).forEach(key => {
-      if (key === 'showAdvancedControls') return; // Skip the toggle itself
-      
-      if (show) {
-        // Show all controls
-        this.controlSettings[key].hidden = false;
-      } else {
-        // Hide advanced controls, show basic ones
-        this.controlSettings[key].hidden = advancedControlKeys.includes(key);
-      }
-    });
+    // Store the current toggle state without modifying the settings object
+    this.showAdvancedControls = show;
     
     // Refresh the controls panel to show/hide the controls
     this.refreshControlsPanel();
