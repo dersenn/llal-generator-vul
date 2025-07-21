@@ -82,6 +82,7 @@ class RectSketch {
       marginLeft: 30,
       marginRight: 30,
       wdths: [50, 100, 150, 200],
+      opacityLevels: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
       nCols: 20,
       txt: 'LLAL',
       guides: {
@@ -248,6 +249,15 @@ class RectSketch {
         locked: true
       },
 
+      // Transparency controls
+      useTransparency: {
+        type: 'toggle',
+        label: 'Use transparency',
+        default: true,
+        value: true,
+        locked: true
+      },
+
       // Color controls
       colBG: {
         type: 'color',
@@ -298,6 +308,11 @@ class RectSketch {
     const style = document.createElementNS(this.svg.ns, 'style');
     style.setAttribute('type', 'text/css');
     
+    // Generate opacity classes dynamically from staticSettings
+    const opacityClasses = this.staticSettings.opacityLevels.map(level => 
+      `.op-${level} { opacity: ${level / 100}; }`
+    ).join('\n      ');
+    
     // Define CSS classes for each width variation using distinct font files
     // Note: font-size is now applied per-row to allow for size variation
     const cssRules = `
@@ -306,6 +321,7 @@ class RectSketch {
       .width-100 { font-family: 'LLALLogoLinear-Regular'; }
       .width-150 { font-family: 'LLALLogoLinear-Extended'; }
       .width-200 { font-family: 'LLALLogoLinear-Expanded'; }
+      ${opacityClasses}
     `;
     
     style.textContent = cssRules;
@@ -490,6 +506,58 @@ class RectSketch {
     return rowYPositions;
   }
 
+  calculateOpacityClass(width, row, nRows, noiseValue) {
+    // Check if transparency is enabled
+    if (!this.controlSettings.useTransparency.value) {
+      return 'op-100'; // All letters fully opaque when transparency is disabled
+    }
+    
+    // Calculate base factors (all range from 0 to 1)
+    const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
+    const rowPosition = row / (nRows - 1); // 0 to 1 (0 = first row, 1 = last row)
+    
+    // Apply curve to row position for more natural falloff - use higher exponent for gentler curve
+    const rowFactor = Math.pow(rowPosition, 2.0);
+    
+    // Calculate opacity: higher noise = wider letters = lower opacity
+    // Create a simple top-to-bottom transparency gradient (top opaque, bottom transparent)
+    const noiseOpacity = 1 - normalizedNoise; // Higher noise = lower opacity
+    const rowOpacity = rowFactor; // Inverted: top rows (row=0) = high opacity, bottom rows = low opacity
+    
+    // Adjust weighting based on width - wider letters are more affected by row position
+    const widthWeights = {
+      50: { noise: 0.9, row: 0.1 },
+      100: { noise: 0.8, row: 0.2 },
+      150: { noise: 0.6, row: 0.4 },
+      200: { noise: 0.4, row: 0.6 }
+    };
+    
+    const weights = widthWeights[width] || { noise: 0.8, row: 0.2 };
+    const finalOpacity = (noiseOpacity * weights.noise) + (rowOpacity * weights.row);
+    
+    // Width-based thresholds - determines if this width should be transparent at all
+    const widthThresholds = { 
+      50: 0.95, // width-50: small chance of transparency (only when opacity < 0.95)
+      100: 0.7, // width-100: only becomes transparent if opacity < 0.7
+      150: 0.9, // width-150: only becomes transparent if opacity < 0.9
+      200: 1    // width-200: only becomes transparent if opacity < 1
+    };
+    
+    const threshold = widthThresholds[width] || 0;
+    
+    // If opacity is above threshold, stay fully opaque
+    if (finalOpacity >= threshold) {
+      return 'op-100';
+    }
+    
+    // Below threshold: map opacity to discrete levels
+    const opacityLevels = this.staticSettings.opacityLevels;
+    const opacityIndex = Math.floor(finalOpacity * opacityLevels.length);
+    const clampedIndex = Math.max(0, Math.min(opacityLevels.length - 1, opacityIndex));
+    
+    return `op-${opacityLevels[clampedIndex]}`;
+  }
+
   createRectText() {
     const textAreaLeft = this.staticSettings.marginLeft;
     const textAreaRight = this.svg.w - this.staticSettings.marginRight;
@@ -603,9 +671,10 @@ class RectSketch {
         
         // Use noise for width variations (always enabled)
         let width;
+        let noiseValue = 0; // Initialize outside the if block
+        
         if (this.staticSettings.useNoise && this.noise) {
           // Create multi-octave noise for more varied patterns
-          let noiseValue = 0;
           let amplitude = 1.0;
           let frequency = 1.0;
           
@@ -667,8 +736,11 @@ class RectSketch {
           width = this.staticSettings.wdths[rndInt(0, this.staticSettings.wdths.length - 1)];
         }
         
-        // Set the width variation using CSS class
-        span.setAttribute('class', `st0 width-${width}`);
+        // Calculate opacity based on width, row position, and raw noise value
+        const opacityClass = this.calculateOpacityClass(width, row, nRows, noiseValue);
+        
+        // Set the width variation and opacity using CSS classes
+        span.setAttribute('class', `st0 width-${width} ${opacityClass}`);
         
         span.textContent = fullText[i];
         textPath.appendChild(span);
