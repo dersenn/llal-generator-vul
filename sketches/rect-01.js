@@ -167,7 +167,7 @@ class RectSketch {
         default: 2.1,
         value: 2.1,
         locked: true,
-        hidden: true
+        hidden: false
       },
       noiseScale: {
         type: 'range',
