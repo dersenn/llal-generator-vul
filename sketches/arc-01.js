@@ -232,7 +232,7 @@ class ArcSketch {
         default: false,
         value: false,
         locked: true,
-        hidden: false
+        hidden: true
       },
 
       // Font size variation controls

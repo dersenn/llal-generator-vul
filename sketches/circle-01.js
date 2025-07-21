@@ -170,7 +170,7 @@ class CircleSketch {
         default: 'counter-clockwise',
         value: 'counter-clockwise',
         locked: true,
-        hidden: false
+        hidden: true
       },
       centerText: {
         type: 'toggle',
@@ -273,7 +273,7 @@ class CircleSketch {
         default: false,
         value: false,
         locked: true,
-        hidden: false
+        hidden: true
       },
 
       // Font size variation controls
