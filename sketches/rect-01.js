@@ -35,6 +35,9 @@ class RectSketch {
     this.createRectText();
     this.setupControls();
     
+    // Initialize advanced controls visibility after controls are set up
+    this.toggleAdvancedControls(this.controlSettings.showAdvancedControls.value);
+    
     // Enable auto-saving now that initialization is complete
     this.isInitializing = false;
     
@@ -164,8 +167,8 @@ class RectSketch {
         min: 0.05,
         max: 5.0,
         step: 0.05,
-        default: 2.1,
-        value: 2.1,
+        default: 0.9,
+        value: 0.9,
         locked: true,
         hidden: false
       },
@@ -296,7 +299,7 @@ class RectSketch {
         type: 'color',
         label: 'Text color',
         default: '#ff794e',
-        value: '#ff794e',
+        value: '#ffffff',
         locked: true,
         hidden: false
       },

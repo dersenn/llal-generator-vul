@@ -182,9 +182,11 @@ class SketchManager {
       // Preserve current settings if the sketch has them
       let preservedSettings = null;
       let preservedLocks = null;
+      let preservedShowAdvanced = false;
       
       if (this.currentSketch && this.currentSketch.controlSettings) {
-        preservedSettings = { ...this.currentSketch.controlSettings };
+        // Deep clone to preserve all settings including nested structures
+        preservedSettings = JSON.parse(JSON.stringify(this.currentSketch.controlSettings));
       }
       
       // Preserve lock states using the sketch's own method
@@ -192,12 +194,22 @@ class SketchManager {
         preservedLocks = this.currentSketch.getCurrentLockStates();
       }
       
+      // Preserve the advanced controls visibility state separately
+      if (this.currentSketch && this.currentSketch.showAdvancedControls !== undefined) {
+        preservedShowAdvanced = this.currentSketch.showAdvancedControls;
+      }
+      
       this.loadSketch(this.currentSketchName, true);
       
       // If we had preserved settings and the sketch can restore controls, let it handle that
       if (preservedSettings && this.currentSketch) {
         console.log('Restoring preserved settings...');
-        console.log('Preserved shiftTextPattern:', preservedSettings.shiftTextPattern);
+        console.log('Preserved showAdvancedControls:', preservedShowAdvanced);
+        
+        // First, set the advanced controls visibility state BEFORE restoring other settings
+        if (this.currentSketch.showAdvancedControls !== undefined) {
+          this.currentSketch.showAdvancedControls = preservedShowAdvanced;
+        }
         
         // Restore settings with deep merge to preserve structure like options arrays
         if (this.currentSketch.controlSettings) {
@@ -212,14 +224,21 @@ class SketchManager {
                 };
                 console.log('Restored shiftTextPattern:', this.currentSketch.controlSettings[key]);
               } else {
-                this.currentSketch.controlSettings[key] = { ...this.currentSketch.controlSettings[key], ...preservedSettings[key] };
+                // Deep merge other settings
+                this.currentSketch.controlSettings[key] = { 
+                  ...this.currentSketch.controlSettings[key], 
+                  ...preservedSettings[key] 
+                };
               }
             }
           });
         }
         
-        // Let the sketch restore its own controls if it has this capability
-        if (typeof this.currentSketch.restoreControlsFromSettings === 'function') {
+        // Force the sketch to refresh its controls panel with correct visibility and settings
+        if (typeof this.currentSketch.refreshControlsPanel === 'function') {
+          this.currentSketch.refreshControlsPanel();
+        } else if (typeof this.currentSketch.restoreControlsFromSettings === 'function') {
+          // Fallback for sketches that don't have refreshControlsPanel
           this.currentSketch.restoreControlsFromSettings(preservedLocks);
         }
         
@@ -227,6 +246,8 @@ class SketchManager {
         if (typeof this.currentSketch.updateSketch === 'function') {
           this.currentSketch.updateSketch();
         }
+        
+        console.log('Settings restoration completed successfully');
       }
     }
   }
