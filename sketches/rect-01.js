@@ -554,15 +554,15 @@ class RectSketch {
     
     // Calculate base factors (all range from 0 to 1)
     const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
-    const rowPosition = row / (nRows - 1); // 0 to 1 (0 = first row, 1 = last row)
+    const rowPosition = (row - 1) / (nRows - 1); // 0 to 1 (0 = first row, 1 = last row)
     
     // Apply curve to row position for more natural falloff - use higher exponent for gentler curve
-    const rowFactor = Math.pow(rowPosition, 30);
+    const rowFactor = Math.pow(rowPosition, .3);
     
     // Calculate opacity: higher noise = wider letters = lower opacity
     // Create a simple top-to-bottom transparency gradient (top opaque, bottom transparent)
     const noiseOpacity = 1 - normalizedNoise; // Higher noise = lower opacity
-    const rowOpacity = rowFactor; // Inverted: top rows (row=0) = high opacity, bottom rows = low opacity
+    const rowOpacity = rowFactor;
     
     // Adjust weighting based on width - wider letters are more affected by row position
     const widthWeights = {
@@ -571,8 +571,10 @@ class RectSketch {
       150: { noise: 0.6, row: 0.4 },
       200: { noise: 0.4, row: 0.6 }
     };
-    
-    const weights = widthWeights[width] || { noise: 0.8, row: 0.2 };
+
+    const weights = { noise: 0.8, row: 0.2 };
+
+    // const weights = widthWeights[width] || { noise: 0.8, row: 0.2 };
     const finalOpacity = (noiseOpacity * weights.noise) + (rowOpacity * weights.row);
     
     // Width-based thresholds - determines if this width should be transparent at all
