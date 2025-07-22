@@ -557,10 +557,10 @@ class RectSketch {
     
     // Calculate base factors (all range from 0 to 1)
     const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
-    const rowPosition = (row - 1) / (nRows - 1); // 0 to 1 (0 = first row, 1 = last row)
+    const rowPosition = row / (nRows - 1); // 0 to 1 (0 = first row, 1 = last row) - adjusted for 0-based indexing
     
     // Apply curve to row position for more natural falloff - use higher exponent for gentler curve
-    const rowFactor = Math.pow(rowPosition, .3);
+    const rowFactor = Math.pow(rowPosition, 1.5);
     
     // Calculate opacity: higher noise = wider letters = lower opacity
     // Create a simple top-to-bottom transparency gradient (top opaque, bottom transparent)
