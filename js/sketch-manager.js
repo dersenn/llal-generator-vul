@@ -38,10 +38,10 @@ class SketchManager {
     // This is the only place you need to modify to add a new sketch
     const sketchDefinitions = [
       {
-        name: 'arc-02-cmyk',
-        displayName: 'Vulkanmuster (CMYK)',
-        class: ArcSketch,
-        description: 'Arc text layout with cone pattern (CMYK)'
+        name: 'arc-02-multi',
+        displayName: 'Vulkanmuster (Multi-Color)',
+        class: ArcSketchMulti,
+        description: 'Arc text layout with cone pattern (Multi-Color)'
       },
       {
         name: 'arc-01',

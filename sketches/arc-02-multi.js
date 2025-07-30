@@ -1,7 +1,7 @@
 // Arc Text sketch - based on vul2
 // Cone arc text layout with SVG path generation
 
-class ArcSketch {
+class ArcSketchMulti {
   constructor(controlsContainer) {
     this.controlsContainer = controlsContainer;
     this.svg = null;
@@ -82,7 +82,7 @@ class ArcSketch {
       useNoise: true,
       borderTop: 0,
       wdths: [50, 100, 150, 200],
-      opacityLevels: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+      opacityLevels: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
       nCols: 20,
       leftAngle: 24,
       rightAngle: 24,
@@ -225,54 +225,6 @@ class ArcSketch {
         value: 0.75,
         locked: false,
         hidden: false
-      },
-      inverseWidthMapping: {
-        type: 'toggle',
-        label: 'Inverse width mapping',
-        default: false,
-        value: false,
-        locked: true,
-        hidden: true
-      },
-
-      // Font size variation controls
-      fontSizeVariation: {
-        type: 'toggle',
-        label: 'Font size variation',
-        default: false,
-        value: false,
-        locked: true,
-        hidden: true
-      },
-      fontSizeVariationAmount: {
-        type: 'range',
-        label: 'Font size variation amount',
-        min: 0.1,
-        max: 2.0,
-        step: 0.1,
-        default: 0.3,
-        value: 0.3,
-        locked: true,
-        hidden: true
-      },
-      fontSizeNoiseScale: {
-        type: 'range',
-        label: 'Font size noise scale',
-        min: 0.005,
-        max: 0.1,
-        step: 0.005,
-        default: 0.05,
-        value: 0.05,
-        locked: true,
-        hidden: true
-      },
-      adaptiveSpacing: {
-        type: 'toggle',
-        label: 'Adaptive row spacing',
-        default: true,
-        value: true,
-        locked: true,
-        hidden: true
       },
 
       // Transparency controls
@@ -521,78 +473,17 @@ class ArcSketch {
   }
 
   calculateRowFontSize(row) {
-    const baseFontSize = parseFloat(this.fSize);
-    
-    if (!this.controlSettings.fontSizeVariation.value || !this.noise) {
-      return baseFontSize;
-    }
-    
-    // Calculate noise for this row
-    let noiseValue = 0;
-    let amplitude = 1.0;
-    let frequency = 1.0;
-    
-    for (let octave = 0; octave < this.controlSettings.noiseOctaves.value; octave++) {
-      const noiseX = 0; // Keep X constant for row-based variation
-      const noiseY = (row - 1) * this.controlSettings.fontSizeNoiseScale.value * frequency;
-      noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
-      
-      amplitude *= this.controlSettings.noisePersistence.value;
-      frequency *= this.controlSettings.noiseLacunarity.value;
-    }
-    
-    // Apply contrast
-    const contrast = this.controlSettings.noiseContrast.value;
-    if (contrast !== 1.0) {
-      noiseValue = Math.sign(noiseValue) * Math.pow(Math.abs(noiseValue), contrast);
-    }
-    
-    // Clamp noise value
-    noiseValue = Math.max(-1, Math.min(1, noiseValue));
-    
-    // Apply variation
-    const variation = this.controlSettings.fontSizeVariationAmount.value;
-    const scaleFactor = 1 + (noiseValue * variation);
-    
-    // Ensure font size doesn't go below a minimum threshold or above maximum
-    const minFontSize = baseFontSize * 0.3;
-    const maxFontSize = baseFontSize * 2.0;
-    
-    return Math.max(minFontSize, Math.min(maxFontSize, baseFontSize * scaleFactor));
+    // Always return the base font size since font size variation is removed
+    return parseFloat(this.fSize);
   }
 
-  calculateRowRadii(rowFontSizes, rOuter, rInner, nRows) {
-    const availableSpace = rOuter - rInner;
-    const numRows = rowFontSizes.length;
-    
-    if (numRows === 0) return [];
-    
-    // Calculate spacing needed for each row based on font size and line spacing
-    const spacingMultiplier = this.controlSettings.lineSpacing.value;
-    const rowSpacings = rowFontSizes.map(fontSize => fontSize * spacingMultiplier);
-    
-    // Calculate total spacing needed
-    const totalSpacing = rowSpacings.reduce((sum, spacing) => sum + spacing, 0);
-    
-    // If total spacing exceeds available space, scale down proportionally
-    const scaleFactor = totalSpacing > availableSpace ? availableSpace / totalSpacing : 1.0;
-    
-    // Calculate actual radius positions
+  calculateRowRadii(rOuter, rInner, nRows) {
+    // Use fixed spacing since adaptive spacing is removed
+    const radiusStep = (rOuter - rInner) / (nRows - 1);
     const rowRadii = [];
-    let currentRadius = rOuter; // Start from outer radius and work inward
-    
-    for (let i = 0; i < numRows; i++) {
-      // For the first row, start at the outer radius
-      if (i === 0) {
-        rowRadii.push(currentRadius);
-      } else {
-        // Move inward by the scaled spacing for the previous row
-        const previousSpacing = rowSpacings[i - 1] * scaleFactor;
-        currentRadius -= previousSpacing;
-        rowRadii.push(Math.max(currentRadius, rInner)); // Don't go below inner radius
-      }
+    for (let row = 1; row < nRows; row++) {
+      rowRadii.push(rInner + (row * radiusStep));
     }
-    
     return rowRadii;
   }
 
@@ -673,25 +564,8 @@ class ArcSketch {
     const txt = this.staticSettings.txt;
     const colFG = this.controlSettings.colFG.value;
     
-    // Calculate font sizes for all rows first
-    const rowFontSizes = [];
-    for (let row = 1; row < nRows; row++) {
-      rowFontSizes.push(this.calculateRowFontSize(row));
-    }
-    
-    // Calculate radius positions - either adaptive or fixed spacing
-    let rowRadii;
-    if (this.controlSettings.adaptiveSpacing.value) {
-      // Use adaptive spacing based on font sizes
-      rowRadii = this.calculateRowRadii(rowFontSizes, rOuter, rInner, nRows);
-    } else {
-      // Use fixed spacing (original behavior)
-      const radiusStep = (rOuter - rInner) / (nRows - 1);
-      rowRadii = [];
-      for (let row = 1; row < nRows; row++) {
-        rowRadii.push(rInner + (row * radiusStep));
-      }
-    }
+    // Calculate radius positions using fixed spacing
+    const rowRadii = this.calculateRowRadii(rOuter, rInner, nRows);
     
     // Generate text for each line - follow the arc using textPath
     for (let row = 1; row < nRows; row++) {
@@ -709,9 +583,9 @@ class ArcSketch {
       // Calculate arc length for this radius
       const arcLength = radius * Math.abs(rad(arcEnd - arcStart));
       
-      // Calculate repetitions based on actual row font size (not base font size)
-      const actualFontSize = rowFontSizes[row - 1]; // Use the actual font size for this row
-      const avgCharWidth = actualFontSize * 0.4; // Character width based on actual font size
+      // Calculate repetitions based on base font size
+      const baseFontSize = parseFloat(fSize);
+      const avgCharWidth = baseFontSize * 0.4; // Character width based on base font size
       const charsPerLLAL = txt.length;
       const avgLLALWidth = avgCharWidth * charsPerLLAL;
       
@@ -755,9 +629,8 @@ class ArcSketch {
       // Create text element that follows the path
       const text = document.createElementNS(this.svg.ns, 'text');
       
-      // Apply font size variation per row (use pre-calculated size)
-      const rowFontSize = rowFontSizes[row - 1]; // rowFontSizes is 0-indexed, row starts from 1
-      text.setAttribute('style', `font-size: ${rowFontSize}px`);
+      // Apply base font size to all rows
+      text.setAttribute('style', `font-size: ${baseFontSize}px`);
       
       // Apply text centering if enabled
       if (this.controlSettings.centerText.value) {
@@ -824,14 +697,6 @@ class ArcSketch {
           
           // Map noise value (-1 to 1) to width range
           let normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
-          
-          // If inverse mapping is enabled, invert the normalized noise
-          if (this.controlSettings.inverseWidthMapping.value) {
-            normalizedNoise = 1 - normalizedNoise;
-          }
-
-          // noiseValue = normalizedNoise;
-          // console.log('in: ', noiseValue);
           
           // Use predefined width steps for CSS classes with bounds checking
           const widthIndex = Math.floor(normalizedNoise * this.staticSettings.wdths.length);
@@ -1219,8 +1084,8 @@ class ArcSketch {
       const settingsData = {
         controlSettings: valuesToSave
       };
-      localStorage.setItem('arcSketchSettings', JSON.stringify(settingsData));
-              console.log('Settings saved successfully (values, locks, and hidden states)');
+      localStorage.setItem('arcSketchMultiSettings', JSON.stringify(settingsData));
+              console.log('ArcSketchMulti: Settings saved successfully (values, locks, and hidden states)');
     } catch (e) {
       console.error('Failed to save settings:', e);
     }
@@ -1228,7 +1093,7 @@ class ArcSketch {
 
   loadSettings() {
     try {
-      const saved = localStorage.getItem('arcSketchSettings');
+      const saved = localStorage.getItem('arcSketchMultiSettings');
       if (saved) {
         const settingsData = JSON.parse(saved);
         // Only restore values and locked states, preserve configuration metadata
@@ -1255,7 +1120,7 @@ class ArcSketch {
             }
           });
         }
-        console.log('Settings loaded successfully (values, locks, and hidden states, preserved ranges)');
+        console.log('ArcSketchMulti: Settings loaded successfully (values, locks, and hidden states, preserved ranges)');
       }
     } catch (e) {
       console.error('Failed to load settings:', e);
@@ -1385,7 +1250,7 @@ class ArcSketch {
               
               this.updateSketch();
               this.updateHashDisplay(); // Update the displayed hash
-              console.log('Settings and seed loaded from SVG file (values, locks, and hidden states only, preserved ranges)');
+              console.log('ArcSketchMulti: Settings and seed loaded from SVG file (values, locks, and hidden states only, preserved ranges)');
             } else {
               console.log('No settings found in SVG file');
             }
@@ -1414,7 +1279,7 @@ class ArcSketch {
     });
 
     // Clear localStorage
-    localStorage.removeItem('arcSketchSettings');
+    localStorage.removeItem('arcSketchMultiSettings');
 
     // Reinitialize noise (always enabled)
     this.noise = new SimplexNoise(this.originalNoiseSeed);
@@ -1441,7 +1306,7 @@ class ArcSketch {
       }, 1000);
     }
 
-    console.log('All settings reset to defaults');
+    console.log('ArcSketchMulti: All settings reset to defaults');
   }
 
   getCurrentLockStates() {
@@ -1454,11 +1319,6 @@ class ArcSketch {
     this.controlSettings.angularNoise.locked = document.getElementById('angularNoise-lock')?.checked || false;
     this.controlSettings.angularResolution.locked = document.getElementById('angularResolution-lock')?.checked || false;
     this.controlSettings.yScaleFactor.locked = document.getElementById('yScaleFactor-lock')?.checked || false;
-    this.controlSettings.inverseWidthMapping.locked = document.getElementById('inverseWidthMapping-lock')?.checked || false;
-    this.controlSettings.fontSizeVariation.locked = document.getElementById('fontSizeVariation-lock')?.checked || false;
-    this.controlSettings.fontSizeVariationAmount.locked = document.getElementById('fontSizeVariationAmount-lock')?.checked || false;
-    this.controlSettings.fontSizeNoiseScale.locked = document.getElementById('fontSizeNoiseScale-lock')?.checked || false;
-    this.controlSettings.adaptiveSpacing.locked = document.getElementById('adaptiveSpacing-lock')?.checked || false;
     this.controlSettings.noiseScale.locked = document.getElementById('noiseScale-lock')?.checked || false;
     this.controlSettings.noiseOctaves.locked = document.getElementById('noiseOctaves-lock')?.checked || false;
     this.controlSettings.noisePersistence.locked = document.getElementById('noisePersistence-lock')?.checked || false;
@@ -1476,11 +1336,6 @@ class ArcSketch {
       angularNoise: this.controlSettings.angularNoise.locked,
       angularResolution: this.controlSettings.angularResolution.locked,
       yScaleFactor: this.controlSettings.yScaleFactor.locked,
-      inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
-      fontSizeVariation: this.controlSettings.fontSizeVariation.locked,
-      fontSizeVariationAmount: this.controlSettings.fontSizeVariationAmount.locked,
-      fontSizeNoiseScale: this.controlSettings.fontSizeNoiseScale.locked,
-      adaptiveSpacing: this.controlSettings.adaptiveSpacing.locked,
       noiseScale: this.controlSettings.noiseScale.locked,
       noiseOctaves: this.controlSettings.noiseOctaves.locked,
       noisePersistence: this.controlSettings.noisePersistence.locked,
