@@ -670,7 +670,7 @@ class ArcSketch {
   }
 
   createArcTextLines(cx, cy, rOuter, rInner, arcStart, arcEnd) {
-    const nRows = this.controlSettings.nRows.value;
+    const nRows = this.controlSettings.nRows.value + 1; // Add 1 to create the specified number of lines
     const fSize = this.fSize;
     const txt = this.staticSettings.txt;
     const colFG = this.controlSettings.colFG.value;
