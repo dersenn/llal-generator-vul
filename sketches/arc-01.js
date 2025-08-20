@@ -104,9 +104,9 @@ class ArcSketch {
         min: 60,
         max: 180,
         step: 1,
-        default: 120,
-        value: 120,
-        locked: false,
+        default: 144,
+        value: 144,
+        locked: true,
         hidden: false
       },
       lineSpacing: {
@@ -120,7 +120,7 @@ class ArcSketch {
         locked: true,
         hidden: true
       },
-      
+
       // Text controls
       shiftTextPattern: {
         type: 'select',
@@ -134,17 +134,17 @@ class ArcSketch {
       centerText: {
         type: 'toggle',
         label: 'Center text on paths',
-        default: true,
-        value: true,
+        default: false,
+        value: false,
         locked: true,
         hidden: false
       },
-      
+
       // Noise controls
       angularNoise: {
         type: 'toggle',
         label: 'Angular noise',
-        default: false,
+        default: true,
         value: true,
         locked: true,
         hidden: false
@@ -177,9 +177,9 @@ class ArcSketch {
         min: 0.001,
         max: 0.1,
         step: 0.001,
-        default: 0.09,
-        value: 0.09,
-        locked: false,
+        default: 0.06,
+        value: 0.06,
+        locked: true,
         hidden: false
       },
       noiseOctaves: {
@@ -188,9 +188,9 @@ class ArcSketch {
         min: 1,
         max: 6,
         step: 1,
-        default: 3,
-        value: 3,
-        locked: false,
+        default: 4,
+        value: 4,
+        locked: true,
         hidden: false
       },
       noisePersistence: {
@@ -199,9 +199,9 @@ class ArcSketch {
         min: 0.1,
         max: 1.0,
         step: 0.1,
-        default: 0.6,
-        value: 0.6,
-        locked: false,
+        default: 0.2,
+        value: 0.2,
+        locked: true,
         hidden: false
       },
       noiseContrast: {
@@ -221,9 +221,9 @@ class ArcSketch {
         min: 0.05,
         max: 1.5,
         step: 0.05,
-        default: 0.75,
-        value: 0.75,
-        locked: false,
+        default: 1.0,
+        value: 1.0,
+        locked: true,
         hidden: false
       },
       inverseWidthMapping: {
@@ -289,16 +289,16 @@ class ArcSketch {
       colBG: {
         type: 'color',
         label: 'Background color',
-        default: '#000000',
-        value: '#000000',
+        default: '#ffffff',
+        value: '#ffffff',
         locked: true,
         hidden: false
       },
       colFG: {
         type: 'color',
         label: 'Text color',
-        default: '#ffffff',
-        value: '#ffffff',
+        default: '#000000',
+        value: '#000000',
         locked: true,
         hidden: false
       },
@@ -622,7 +622,9 @@ class ArcSketch {
       200: { noise: 0.4, row: 0.6 }
     };
     
-    const weights = { noise: 0.8, row: 0.2 };
+    // const weights = { noise: 0.8, row: 0.2 };
+    const weights = { noise: 1, row: 0 };
+
     // const weights = widthWeights[width] || { noise: 0.8, row: 0.2 };
     const finalOpacity = (noiseOpacity * weights.noise) + (rowOpacity * weights.row);
     
