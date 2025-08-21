@@ -310,8 +310,8 @@ class ArcSketch {
         min: 0,
         max: 15,
         step: 0.5,
-        default: 3,
-        value: 3,
+        default: 1.5,
+        value: 1.5,
         locked: true,
         hidden: false
       },
@@ -1511,49 +1511,20 @@ class ArcSketch {
 
   getCurrentLockStates() {
     // Sync the internal state with the DOM and return current lock states
-    // Update internal state from DOM
-    this.controlSettings.nRows.locked = document.getElementById('nRows-lock')?.checked || false;
-    this.controlSettings.lineSpacing.locked = document.getElementById('lineSpacing-lock')?.checked || false;
-    this.controlSettings.shiftTextPattern.locked = document.getElementById('shiftTextPattern-lock')?.checked || false;
-    this.controlSettings.centerText.locked = document.getElementById('centerText-lock')?.checked || false;
-    this.controlSettings.angularNoise.locked = document.getElementById('angularNoise-lock')?.checked || false;
-    this.controlSettings.angularResolution.locked = document.getElementById('angularResolution-lock')?.checked || false;
-    this.controlSettings.yScaleFactor.locked = document.getElementById('yScaleFactor-lock')?.checked || false;
-    this.controlSettings.inverseWidthMapping.locked = document.getElementById('inverseWidthMapping-lock')?.checked || false;
-    this.controlSettings.fontSizeVariation.locked = document.getElementById('fontSizeVariation-lock')?.checked || false;
-    this.controlSettings.fontSizeVariationAmount.locked = document.getElementById('fontSizeVariationAmount-lock')?.checked || false;
-    this.controlSettings.fontSizeNoiseScale.locked = document.getElementById('fontSizeNoiseScale-lock')?.checked || false;
-    this.controlSettings.adaptiveSpacing.locked = document.getElementById('adaptiveSpacing-lock')?.checked || false;
-    this.controlSettings.noiseScale.locked = document.getElementById('noiseScale-lock')?.checked || false;
-    this.controlSettings.noiseOctaves.locked = document.getElementById('noiseOctaves-lock')?.checked || false;
-    this.controlSettings.noisePersistence.locked = document.getElementById('noisePersistence-lock')?.checked || false;
-    this.controlSettings.noiseContrast.locked = document.getElementById('noiseContrast-lock')?.checked || false;
-    this.controlSettings.noiseLacunarity.locked = document.getElementById('noiseLacunarity-lock')?.checked || false;
-    this.controlSettings.colBG.locked = document.getElementById('colBG-lock')?.checked || false;
-    this.controlSettings.colFG.locked = document.getElementById('colFG-lock')?.checked || false;
+    // Data-driven approach - automatically includes all controls
+    const lockStates = {};
     
-    // Return the lock states
-    return {
-      nRows: this.controlSettings.nRows.locked,
-      lineSpacing: this.controlSettings.lineSpacing.locked,
-      shiftTextPattern: this.controlSettings.shiftTextPattern.locked,
-      centerText: this.controlSettings.centerText.locked,
-      angularNoise: this.controlSettings.angularNoise.locked,
-      angularResolution: this.controlSettings.angularResolution.locked,
-      yScaleFactor: this.controlSettings.yScaleFactor.locked,
-      inverseWidthMapping: this.controlSettings.inverseWidthMapping.locked,
-      fontSizeVariation: this.controlSettings.fontSizeVariation.locked,
-      fontSizeVariationAmount: this.controlSettings.fontSizeVariationAmount.locked,
-      fontSizeNoiseScale: this.controlSettings.fontSizeNoiseScale.locked,
-      adaptiveSpacing: this.controlSettings.adaptiveSpacing.locked,
-      noiseScale: this.controlSettings.noiseScale.locked,
-      noiseOctaves: this.controlSettings.noiseOctaves.locked,
-      noisePersistence: this.controlSettings.noisePersistence.locked,
-      noiseContrast: this.controlSettings.noiseContrast.locked,
-      noiseLacunarity: this.controlSettings.noiseLacunarity.locked,
-      colBG: this.controlSettings.colBG.locked,
-      colFG: this.controlSettings.colFG.locked
-    };
+    Object.keys(this.controlSettings).forEach(key => {
+      const lockCheckbox = document.getElementById(`${key}-lock`);
+      if (lockCheckbox) {
+        // Update internal state from DOM
+        this.controlSettings[key].locked = lockCheckbox.checked;
+        // Add to return object
+        lockStates[key] = this.controlSettings[key].locked;
+      }
+    });
+    
+    return lockStates;
   }
 
   restoreControlsFromSettings(locks = null) {
