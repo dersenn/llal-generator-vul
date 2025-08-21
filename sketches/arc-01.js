@@ -84,8 +84,8 @@ class ArcSketch {
       wdths: [50, 100, 150, 200],
       opacityLevels: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
       nCols: 20,
-      leftAngle: 24,
-      rightAngle: 24,
+      leftAngle: 23.96,
+      rightAngle: 23.99,
       txt: 'LLAL',
       guides: {
         show: true,
