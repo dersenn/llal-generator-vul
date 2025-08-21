@@ -51,8 +51,8 @@ class ArcSketch {
     const mmToPx = DPI / 25.4; // 1 mm in px at chosen DPI
 
     // MEASUREMENTS FOR PRINT
-    const docWidth = 306; // mm
-    const docHeight = 285; // mm
+    const docWidth = 305.988; // mm
+    const docHeight = 284.889; // mm
 
     // Set SVG size to document size in px at chosen DPI
     const setup = {
@@ -700,8 +700,8 @@ class ArcSketch {
   }
 
   createArcText() {
-    const rOuter = 376 * this.mmToPx;
-    const rInner = 100 * this.mmToPx;
+    const rOuter = 750 / 2 * this.mmToPx;
+    const rInner = 199.12 / 2 * this.mmToPx;
     const cx = this.svg.w / 2;
     const cy = this.svg.h - rOuter; // center above SVG, arc at bottom
 
