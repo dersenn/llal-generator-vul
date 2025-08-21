@@ -50,8 +50,11 @@ class RectSketchMulti {
     const mmToPx = DPI / 25.4; // 1 mm in px at chosen DPI
 
     // MEASUREMENTS FOR PRINT
-    const docWidth = 210; // mm
-    const docHeight = 297; // mm
+    const printWidth = 210; // mm - actual print area
+    const printHeight = 297; // mm - actual print area
+    const bleedAmount = 3; // mm - bleed on all sides
+    const docWidth = printWidth + (bleedAmount * 2); // mm - total document with bleed
+    const docHeight = printHeight + (bleedAmount * 2); // mm - total document with bleed
 
     // Set SVG size to document size in px at chosen DPI
     const setup = {
@@ -67,8 +70,17 @@ class RectSketchMulti {
       window.sketchManager.setSvg(this.svg);
     }
 
-    // Store mmToPx for later use
+    // Store measurements for later use
     this.mmToPx = mmToPx;
+    this.bleedAmount = bleedAmount;
+    this.printArea = {
+      left: bleedAmount * mmToPx,
+      top: bleedAmount * mmToPx,
+      right: (printWidth + bleedAmount) * mmToPx,
+      bottom: (printHeight + bleedAmount) * mmToPx,
+      width: printWidth * mmToPx,
+      height: printHeight * mmToPx
+    };
   }
 
   setupSketch() {
@@ -79,10 +91,10 @@ class RectSketchMulti {
     this.staticSettings = {
       useFilter: false,
       useNoise: true,
-      marginTop: 0,
-      marginBottom: 0,
-      marginLeft: 0,
-      marginRight: 0,
+      marginTop: this.printArea.top,
+      marginBottom: this.svg.h - this.printArea.bottom,
+      marginLeft: this.printArea.left,
+      marginRight: this.svg.w - this.printArea.right,
       wdths: [50, 100, 150, 200],
       opacityLevels: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
       nCols: 20,
@@ -570,6 +582,8 @@ class RectSketchMulti {
     return rowYPositions;
   }
 
+
+
   calculateOpacityClass(width, row, nRows, noiseValue) {
     // Check if transparency is enabled
     if (!this.sharedSettings.useTransparency.value) {
@@ -626,8 +640,9 @@ class RectSketchMulti {
   }
 
   createRectText() {
-    const textAreaLeft = this.staticSettings.marginLeft;
-    const textAreaRight = this.svg.w - this.staticSettings.marginRight;
+    // Text extends into bleed area horizontally (3mm on each side)
+    const textAreaLeft = 0; // Start from the edge (full bleed)
+    const textAreaRight = this.svg.w; // Extend to the edge (full bleed)
     const textAreaWidth = textAreaRight - textAreaLeft;
 
     this.drawControlPoints = false; // Turn off control points for cleaner look
@@ -644,34 +659,43 @@ class RectSketchMulti {
   }
 
   createRectTextLines(textAreaLeft, textAreaRight, textAreaWidth, layer, layerIndex) {
-    const nRows = layer.nRows + 1; // Add 1 to create the specified number of lines (consistent with arc sketches)
+    const baseRows = layer.nRows + 1; // Base rows from arc logic (includes top line)
     const layerFontSize = this.calculateLayerFontSize(layer.nRows); // Calculate font size for this layer
     const txt = this.staticSettings.txt;
     const colFG = layer.colFG;
     
-    // Calculate font sizes for all rows first
+    // Calculate font sizes for base rows first
     const rowFontSizes = [];
-    for (let row = 0; row < nRows; row++) {
+    for (let row = 0; row < baseRows; row++) {
       rowFontSizes.push(this.calculateRowFontSize(row, layerFontSize));
     }
     
-    // Calculate Y positions - either adaptive or fixed spacing
+    // Calculate Y positions for base rows
     let rowYPositions;
     if (this.sharedSettings.adaptiveSpacing.value && this.sharedSettings.fontSizeVariation.value) {
       // Use adaptive spacing based on font sizes
-      rowYPositions = this.calculateRowYPositions(rowFontSizes, nRows);
+      rowYPositions = this.calculateRowYPositions(rowFontSizes, baseRows);
     } else {
       // Use fixed spacing (original behavior)
       const marginTop = this.staticSettings.marginTop;
       const marginBottom = this.staticSettings.marginBottom;
       const availableHeight = this.svg.h - marginTop - marginBottom;
-      const yStep = availableHeight / (nRows - 1);
+      const yStep = availableHeight / (baseRows - 1);
       
       rowYPositions = [];
-      for (let row = 0; row < nRows; row++) {
+      for (let row = 0; row < baseRows; row++) {
         rowYPositions.push(marginTop + (row * yStep));
       }
     }
+    
+    // Add one extra line at the bottom for bleed
+    const lastRowFontSize = this.calculateRowFontSize(baseRows, layerFontSize);
+    rowFontSizes.push(lastRowFontSize);
+    
+    const lastYStep = rowYPositions[baseRows - 1] - rowYPositions[baseRows - 2]; // Use same step as last interval
+    rowYPositions.push(rowYPositions[baseRows - 1] + lastYStep);
+    
+    const nRows = baseRows + 1; // Total rows including bottom bleed
     
     // Generate text for each line - follow horizontal paths using textPath
     for (let row = 0; row < nRows; row++) {
