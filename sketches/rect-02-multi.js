@@ -84,7 +84,7 @@ class RectSketchMulti {
       marginLeft: 0,
       marginRight: 0,
       wdths: [50, 100, 150, 200],
-      opacityLevels: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+      opacityLevels: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
       nCols: 20,
       txt: 'LLAL',
       numLayers: 3, // Static number of layers
@@ -150,7 +150,7 @@ class RectSketchMulti {
         type: 'toggle',
         label: 'Center text on paths',
         default: false,
-        value: false,
+        value: true,
         locked: true,
         hidden: true
       },
@@ -179,8 +179,8 @@ class RectSketchMulti {
         min: 0.05,
         max: 5.0,
         step: 0.05,
-        default: 0.9,
-        value: 0.9,
+        default: 0.6,
+        value: 0.6,
         locked: true,
         hidden: true
       },
@@ -190,8 +190,8 @@ class RectSketchMulti {
         min: 0.001,
         max: 0.1,
         step: 0.001,
-        default: 0.09,
-        value: 0.09,
+        default: 0.075,
+        value: 0.075,
         locked: true,
         hidden: true
       },
@@ -201,8 +201,8 @@ class RectSketchMulti {
         min: 1,
         max: 6,
         step: 1,
-        default: 3,
-        value: 3,
+        default: 4,
+        value: 4,
         locked: true,
         hidden: true
       },
@@ -234,8 +234,8 @@ class RectSketchMulti {
         min: 0.05,
         max: 1.5,
         step: 0.05,
-        default: 0.75,
-        value: 0.75,
+        default: 0.81,
+        value: .81,
         locked: true,
         hidden: true
       },
@@ -578,15 +578,15 @@ class RectSketchMulti {
     
     // Calculate base factors (all range from 0 to 1)
     const normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
-    const rowPosition = row / (nRows - 1); // 0 to 1 (0 = first row, 1 = last row) - adjusted for 0-based indexing
+    const rowPosition = (row - 1) / (nRows - 1); // 0 to 1 (0 = first row, 1 = last row) - account for bleed line
     
-    // Apply curve to row position for more natural falloff - use same curve as arc sketch
-    const rowFactor = Math.pow(1 - rowPosition, 2);
+    // Apply curve to row position for more natural falloff
+    const rowFactor = Math.pow(rowPosition, 2);
     
     // Calculate opacity: higher noise = wider letters = lower opacity
-    // Create a simple top-to-bottom transparency gradient (top opaque, bottom transparent)
+    // Lower row position = lower opacity
     const noiseOpacity = 1 - normalizedNoise; // Higher noise = lower opacity
-    const rowOpacity = 1 - rowFactor; // Apply power curve to inverted position for top-to-bottom fade
+    const rowOpacity = 1 - rowFactor; // Lower rows = lower opacity
     
     // Adjust weighting based on width - wider letters are more affected by row position
     const widthWeights = {
@@ -596,7 +596,8 @@ class RectSketchMulti {
       200: { noise: 0.4, row: 0.6 }
     };
 
-    const weights = { noise: 0.8, row: 0.2 };
+    // const weights = { noise: 0.8, row: 0.2 };
+    const weights = { noise: 1, row: 0 };
 
     // const weights = widthWeights[width] || { noise: 0.8, row: 0.2 };
     const finalOpacity = (noiseOpacity * weights.noise) + (rowOpacity * weights.row);
@@ -643,7 +644,7 @@ class RectSketchMulti {
   }
 
   createRectTextLines(textAreaLeft, textAreaRight, textAreaWidth, layer, layerIndex) {
-    const nRows = layer.nRows;
+    const nRows = layer.nRows + 1; // Add 1 to create the specified number of lines (consistent with arc sketches)
     const layerFontSize = this.calculateLayerFontSize(layer.nRows); // Calculate font size for this layer
     const txt = this.staticSettings.txt;
     const colFG = layer.colFG;
