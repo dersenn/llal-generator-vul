@@ -534,7 +534,7 @@ class ArcSketch {
     
     for (let octave = 0; octave < this.controlSettings.noiseOctaves.value; octave++) {
       const noiseX = 0; // Keep X constant for row-based variation
-      const noiseY = (row - 1) * this.controlSettings.fontSizeNoiseScale.value * frequency;
+      const noiseY = row * this.controlSettings.fontSizeNoiseScale.value * frequency;
       noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
       
       amplitude *= this.controlSettings.noisePersistence.value;
@@ -562,7 +562,6 @@ class ArcSketch {
   }
 
   calculateRowRadii(rowFontSizes, rOuter, rInner, nRows) {
-    const availableSpace = rOuter - rInner;
     const numRows = rowFontSizes.length;
     
     if (numRows === 0) return [];
@@ -571,25 +570,34 @@ class ArcSketch {
     const spacingMultiplier = this.controlSettings.lineSpacing.value;
     const rowSpacings = rowFontSizes.map(fontSize => fontSize * spacingMultiplier);
     
-    // Calculate total spacing needed
-    const totalSpacing = rowSpacings.reduce((sum, spacing) => sum + spacing, 0);
+    // Separate bleed line (row 0) from cone lines (rows 1+)
+    const bleedSpacing = rowSpacings[0];
+    const coneSpacings = rowSpacings.slice(1); // rows 1 and up
     
-    // If total spacing exceeds available space, scale down proportionally
-    const scaleFactor = totalSpacing > availableSpace ? availableSpace / totalSpacing : 1.0;
+    // Calculate available space within the cone for rows 1+
+    const availableSpace = rOuter - rInner;
+    const totalConeSpacing = coneSpacings.reduce((sum, spacing) => sum + spacing, 0);
+    
+    // Scale cone spacings if they exceed available space
+    const scaleFactor = totalConeSpacing > availableSpace ? availableSpace / totalConeSpacing : 1.0;
     
     // Calculate actual radius positions
     const rowRadii = [];
-    let currentRadius = rOuter; // Start from outer radius and work inward
     
     for (let i = 0; i < numRows; i++) {
-      // For the first row, start at the outer radius
       if (i === 0) {
-        rowRadii.push(currentRadius);
+        // Bleed line: position beyond rInner (smaller radius = closer to center = top)
+        const bleedDistance = bleedSpacing * scaleFactor;
+        console.log('Bleed line radius:', rInner - bleedDistance, 'rInner:', rInner, 'bleedDistance:', bleedDistance);
+        rowRadii.push(rInner - bleedDistance);
+      } else if (i === 1) {
+        // First visible line: start at inner radius
+        rowRadii.push(rInner);
       } else {
-        // Move inward by the scaled spacing for the previous row
-        const previousSpacing = rowSpacings[i - 1] * scaleFactor;
-        currentRadius -= previousSpacing;
-        rowRadii.push(Math.max(currentRadius, rInner)); // Don't go below inner radius
+        // Subsequent visible lines: move outward by scaled spacing
+        const previousSpacing = coneSpacings[i - 2] * scaleFactor; // -2 because coneSpacings starts at index 0 for row 1
+        const previousRadius = rowRadii[i - 1];
+        rowRadii.push(Math.min(previousRadius + previousSpacing, rOuter));
       }
     }
     
@@ -675,29 +683,38 @@ class ArcSketch {
     const txt = this.staticSettings.txt;
     const colFG = this.controlSettings.colFG.value;
     
-    // Calculate font sizes for all rows first
+    // Calculate font sizes for all rows first (including bleed line at row 0)
     const rowFontSizes = [];
-    for (let row = 1; row < nRows; row++) {
+    for (let row = 0; row < nRows; row++) {
       rowFontSizes.push(this.calculateRowFontSize(row));
     }
     
     // Calculate radius positions - either adaptive or fixed spacing
     let rowRadii;
-    if (this.controlSettings.adaptiveSpacing.value) {
+    if (this.controlSettings.adaptiveSpacing.value && this.controlSettings.fontSizeVariation.value) {
       // Use adaptive spacing based on font sizes
       rowRadii = this.calculateRowRadii(rowFontSizes, rOuter, rInner, nRows);
     } else {
       // Use fixed spacing (original behavior)
+      // We need (nRows - 1) visible lines distributed from rInner to rOuter
       const radiusStep = (rOuter - rInner) / (nRows - 1);
       rowRadii = [];
-      for (let row = 1; row < nRows; row++) {
-        rowRadii.push(rInner + (row * radiusStep));
+      for (let row = 0; row < nRows; row++) {
+        if (row === 0) {
+          // Bleed line: position one step beyond rInner (smaller radius = closer to center = top)
+          rowRadii.push(rInner);
+        } else {
+          // Regular lines: position within the cone area
+          // row 1 should be at rInner, row 2 should be one step outward, etc.
+          const stepsFromInner = row; // row 1 = 0 steps, row 2 = 1 step, etc.
+          rowRadii.push(rInner + (stepsFromInner * radiusStep));
+        }
       }
     }
     
     // Generate text for each line - follow the arc using textPath
-    for (let row = 1; row < nRows; row++) {
-      const radius = rowRadii[row - 1]; // rowRadii is 0-indexed, row starts from 1
+    for (let row = 0; row < nRows; row++) {
+      const radius = rowRadii[row]; // rowRadii is 0-indexed, row starts from 0
       
       // Create the arc path for this radius
       const pathId = `arc-path-${row}`;
@@ -712,7 +729,7 @@ class ArcSketch {
       const arcLength = radius * Math.abs(rad(arcEnd - arcStart));
       
       // Calculate repetitions based on actual row font size (not base font size)
-      const actualFontSize = rowFontSizes[row - 1]; // Use the actual font size for this row
+      const actualFontSize = rowFontSizes[row]; // Use the actual font size for this row
       const avgCharWidth = actualFontSize * 0.4; // Character width based on actual font size
       const charsPerLLAL = txt.length;
       const avgLLALWidth = avgCharWidth * charsPerLLAL;
@@ -734,15 +751,15 @@ class ArcSketch {
         
         switch (shiftMode) {
           case 'forward':
-            // Shift forward by row number (adjusted for skipped first row)
-            shiftAmount = (row - 1) % txt.length;
+            // Shift forward by row number
+            shiftAmount = row % txt.length;
             break;
           case 'backward':
-            // Shift backward by row number (adjusted for skipped first row)
-            shiftAmount = txt.length - ((row - 1) % txt.length);
+            // Shift backward by row number
+            shiftAmount = txt.length - (row % txt.length);
             break;
           case 'random':
-            // Use seeded random for consistent results (adjusted for skipped first row)
+            // Use seeded random for consistent results
             const rowSeed = this.seed ? this.seed.rnd() : Math.random();
             shiftAmount = Math.floor(rowSeed * txt.length);
             break;
@@ -758,7 +775,7 @@ class ArcSketch {
       const text = document.createElementNS(this.svg.ns, 'text');
       
       // Apply font size variation per row (use pre-calculated size)
-      const rowFontSize = rowFontSizes[row - 1]; // rowFontSizes is 0-indexed, row starts from 1
+      const rowFontSize = rowFontSizes[row]; // rowFontSizes is 0-indexed, row starts from 0
       text.setAttribute('style', `font-size: ${rowFontSize}px`);
       
       // Apply text centering if enabled
@@ -803,11 +820,11 @@ class ArcSketch {
               // Use polar-like coordinates: angular position and consistent row-based Y
               // This creates concentric patterns that follow the arc's natural geometry
               noiseX = angularGridIndex * this.controlSettings.noiseScale.value * frequency;
-              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
+              noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
             } else {
               // Use character index directly (creates skewed pattern)
               noiseX = i * this.controlSettings.noiseScale.value * frequency;
-              noiseY = (row - 1) * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
+              noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
             }
             noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
             
