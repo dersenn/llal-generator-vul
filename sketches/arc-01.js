@@ -82,7 +82,7 @@ class ArcSketch {
       useNoise: true,
       borderTop: 0,
       wdths: [50, 100, 150, 200],
-      opacityLevels: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
+      opacityLevels: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100],
       nCols: 20,
       leftAngle: 24,
       rightAngle: 24,
@@ -303,6 +303,35 @@ class ArcSketch {
         hidden: false
       },
 
+      // Bleed controls
+      horizontalBleed: {
+        type: 'range',
+        label: 'Horizontal bleed (degrees)',
+        min: 0,
+        max: 15,
+        step: 0.5,
+        default: 3,
+        value: 3,
+        locked: true,
+        hidden: false
+      },
+      showPrintArea: {
+        type: 'toggle',
+        label: 'Show print area (green cone)',
+        default: true,
+        value: true,
+        locked: true,
+        hidden: false
+      },
+      showDesignArea: {
+        type: 'toggle',
+        label: 'Show design area guides',
+        default: false,
+        value: false,
+        locked: true,
+        hidden: true
+      },
+
       // Control visibility
       showAdvancedControls: {
         type: 'toggle',
@@ -450,13 +479,13 @@ class ArcSketch {
     return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} ${sweepFlag} ${end.x} ${end.y}`;
   }
 
-  makeArc(cx, cy, r, startAngle, endAngle, sweepFlag = 0) {
+  makeArc(cx, cy, r, startAngle, endAngle, sweepFlag = 0, color = null, width = null, opacity = null) {
     const path = document.createElementNS(this.svg.ns, 'path');
     path.setAttribute('d', this.arcPath(cx, cy, r, startAngle, endAngle, sweepFlag));
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', this.staticSettings.guides.color);
-    path.setAttribute('stroke-width', this.staticSettings.guides.width);
-    path.setAttribute('stroke-opacity', this.staticSettings.guides.opacity);
+    path.setAttribute('stroke', color || this.staticSettings.guides.color);
+    path.setAttribute('stroke-width', width || this.staticSettings.guides.width);
+    path.setAttribute('stroke-opacity', opacity || this.staticSettings.guides.opacity);
     
     if (this.drawControlPoints) {
       const start = {
@@ -473,7 +502,7 @@ class ArcSketch {
     this.svg.stage.append(path);
   }
 
-  drawConeConnectors(cx, cy, rOuter, rInner, startAngle, endAngle) {
+  drawConeConnectors(cx, cy, rOuter, rInner, startAngle, endAngle, color = null, width = null, opacity = null) {
     // Calculate the endpoints of the inner and outer arcs
     const outerStart = {
       x: cx + rOuter * Math.cos(rad(startAngle)),
@@ -493,30 +522,41 @@ class ArcSketch {
     };
 
     // Draw connecting lines to complete the cone shape
-    this.drawLine(outerStart, innerStart);
-    this.drawLine(outerEnd, innerEnd);
+    this.drawLine(outerStart, innerStart, color, width, opacity);
+    this.drawLine(outerEnd, innerEnd, color, width, opacity);
   }
 
-  makeGuides(cx, cy, rOuter, rInner, arcStart, arcEnd) {
+  makeGuides(cx, cy, rOuter, rInner, printArcStart, printArcEnd, designArcStart, designArcEnd) {
     if (this.staticSettings.guides.show) {
-      // Draw reference cone outline
-      this.makeArc(cx, cy, rOuter, arcStart, arcEnd);
-      this.makeArc(cx, cy, rInner, arcStart, arcEnd);
+      // Draw print area cone outline (green)
+      if (this.controlSettings.showPrintArea.value) {
+        this.makeArc(cx, cy, rOuter, printArcStart, printArcEnd, this.staticSettings.guides.color, this.staticSettings.guides.width, this.staticSettings.guides.opacity);
+        this.makeArc(cx, cy, rInner, printArcStart, printArcEnd, this.staticSettings.guides.color, this.staticSettings.guides.width, this.staticSettings.guides.opacity);
+        
+        // Connect the arc endpoints to complete the cone shape
+        this.drawConeConnectors(cx, cy, rOuter, rInner, printArcStart, printArcEnd, this.staticSettings.guides.color, this.staticSettings.guides.width, this.staticSettings.guides.opacity);
+      }
       
-      // Connect the arc endpoints to complete the cone shape
-      this.drawConeConnectors(cx, cy, rOuter, rInner, arcStart, arcEnd);
+      // Draw design area cone outline (different color)
+      if (this.controlSettings.showDesignArea.value) {
+        this.makeArc(cx, cy, rOuter, designArcStart, designArcEnd, '#f0f', 1, 0.5);
+        this.makeArc(cx, cy, rInner, designArcStart, designArcEnd, '#f0f', 1, 0.5);
+        
+        // Connect the arc endpoints to complete the cone shape
+        this.drawConeConnectors(cx, cy, rOuter, rInner, designArcStart, designArcEnd, '#f0f', 1, 0.5);
+      }
     }
   }
 
-  drawLine(start, end) {
+  drawLine(start, end, color = null, width = null, opacity = null) {
     const line = document.createElementNS(this.svg.ns, 'line');
     line.setAttribute('x1', start.x);
     line.setAttribute('y1', start.y);
     line.setAttribute('x2', end.x);
     line.setAttribute('y2', end.y);
-    line.setAttribute('stroke', this.staticSettings.guides.color);
-    line.setAttribute('stroke-width', this.staticSettings.guides.width);
-    line.setAttribute('stroke-opacity', this.staticSettings.guides.opacity);
+    line.setAttribute('stroke', color || this.staticSettings.guides.color);
+    line.setAttribute('stroke-width', width || this.staticSettings.guides.width);
+    line.setAttribute('stroke-opacity', opacity || this.staticSettings.guides.opacity);
     this.svg.stage.append(line);
   }
 
@@ -665,16 +705,22 @@ class ArcSketch {
     const cx = this.svg.w / 2;
     const cy = this.svg.h - rOuter; // center above SVG, arc at bottom
 
-    const arcStart = 90 + this.staticSettings.leftAngle;   // bottom-right of circle
-    const arcEnd = 90 - this.staticSettings.rightAngle;      // bottom-left of circle
+    // Calculate print area angles (for green cone guides)
+    const printArcStart = 90 + this.staticSettings.leftAngle;   // bottom-right of circle
+    const printArcEnd = 90 - this.staticSettings.rightAngle;    // bottom-left of circle
+
+    // Calculate design area angles (extended for bleed)
+    const bleedAmount = this.controlSettings.horizontalBleed.value;
+    const designArcStart = 90 + this.staticSettings.leftAngle + bleedAmount;   // extended right
+    const designArcEnd = 90 - this.staticSettings.rightAngle - bleedAmount;    // extended left
 
     this.drawControlPoints = false; // Turn off control points for cleaner look
 
-    // Draw reference cone outline (if enabled)
-    this.makeGuides(cx, cy, rOuter, rInner, arcStart, arcEnd);
+    // Draw reference cone outlines (if enabled)
+    this.makeGuides(cx, cy, rOuter, rInner, printArcStart, printArcEnd, designArcStart, designArcEnd);
 
-    // Generate multiple lines of text along the arcs
-    this.createArcTextLines(cx, cy, rOuter, rInner, arcStart, arcEnd);
+    // Generate multiple lines of text along the arcs using design angles
+    this.createArcTextLines(cx, cy, rOuter, rInner, designArcStart, designArcEnd);
   }
 
   createArcTextLines(cx, cy, rOuter, rInner, arcStart, arcEnd) {
