@@ -96,19 +96,40 @@ class ArcSketchMulti {
     };
 
     // Single background color for the entire sketch
-    this.backgroundColor = '#ffffff';
+    this.backgroundColor = '#381C4A';
 
     // Initialize layers with default settings
     this.layers = [];
-    for (let i = 0; i < this.staticSettings.numLayers; i++) {
-      this.layers.push({
-        id: `layer-${i + 1}`,
-        name: `Layer ${i + 1}`,
-        visible: true,
-        nRows: 144 - (i * 20), // Vary the line count slightly for each layer
-        colFG: i === 0 ? '#000000' : `hsl(${i * 120}, 70%, 50%)` // Different colors per layer
-      });
-    }
+    this.layers.push({
+      id: `layer-1`,
+      name: `Layer 1`,
+      visible: true,
+      nRows: 144,
+      colFG: '#FF5909'
+    });
+    this.layers.push({
+      id: `layer-2`,
+      name: `Layer 2`,
+      visible: true,
+      nRows: 72,
+      colFG: '#FFFFFF'
+    });
+    this.layers.push({
+      id: `layer-3`,
+      name: `Layer 3`,
+      visible: true,
+      nRows: 36,
+      colFG: '#FF5909'
+    });
+    // for (let i = 0; i < this.staticSettings.numLayers; i++) {
+    //   this.layers.push({
+    //     id: `layer-${i + 1}`,
+    //     name: `Layer ${i + 1}`,
+    //     visible: true,
+    //     nRows: 144 - (i * 20), // Vary the line count slightly for each layer
+    //     colFG: i === 0 ? '#000000' : `hsl(${i * 120}, 70%, 50%)` // Different colors per layer
+    //   });
+    // }
 
     // Shared settings - everything except layer-specific settings (nRows, colors)
     // Most settings are hidden since we're simplifying the UI
@@ -314,7 +335,7 @@ class ArcSketchMulti {
       nRows: {
         type: 'range',
         label: 'Lines',
-        min: 60,
+        min: 24,
         max: 180,
         step: 1,
         default: 144,
