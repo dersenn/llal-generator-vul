@@ -368,6 +368,11 @@ class ArcSketchMulti {
     // Flag to prevent auto-saving during initial setup
     this.isInitializing = true;
 
+    // Performance optimization: debounce update calls
+    this.updateTimeout = null;
+    this.debounceDelay = 150; // ms for text inputs
+    this.sliderDebounceDelay = 50; // ms for sliders (more responsive)
+
     // Initialize noise generator using the main seed system
     // Always use noise for all sketches
     this.originalNoiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
@@ -807,9 +812,9 @@ class ArcSketchMulti {
       const charsPerLLAL = txt.length;
       const avgLLALWidth = avgCharWidth * charsPerLLAL;
 
-      // Calculate repetitions with much more generous safety margin for smaller fonts
+      // Calculate repetitions with optimized safety margin for performance
       const baseRepetitions = Math.ceil(arcLength / avgLLALWidth);
-      const repetitions = Math.max(baseRepetitions * 3.0, 24); // Minimum 24 repetitions, 200% safety margin
+      const repetitions = Math.max(baseRepetitions * 2.0, 16); // Reduced safety margin for better performance
 
       // Create the full line of repeating text
       let fullText = '';
@@ -864,94 +869,120 @@ class ArcSketchMulti {
       textPath.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `#${pathId}`);
       textPath.setAttribute('startOffset', this.sharedSettings.centerText.value ? '50%' : '0%');
 
-      // Create individual tspans for each letter with width variations
-      for (let i = 0; i < fullText.length; i++) {
-        const span = document.createElementNS(this.svg.ns, 'tspan');
-
-        // Use noise for width variations (always enabled)
-        let width;
-        let noiseValue = 0; // Initialize outside the if block
-
-        if (this.staticSettings.useNoise && this.noise) {
-          // Create multi-octave noise for more varied patterns
-          let amplitude = 1.0;
-          let frequency = 1.0;
-
-          for (let octave = 0; octave < this.sharedSettings.noiseOctaves.value; octave++) {
-            let noiseX, noiseY;
-
-            if (this.sharedSettings.angularNoise.value) {
-              // Center-based angular sampling using arc geometry
-              // Calculate the actual angular position for this character relative to arc center
-              const totalArcAngle = Math.abs(arcEnd - arcStart); // total arc span in degrees
-              const midAngle = totalArcAngle / 2; // center angle of the arc
-
-              // Character's angular position relative to arc center (0 at center, negative/positive at edges)
-              const charRelativeAngle = (i / fullText.length) * totalArcAngle - midAngle;
-
-              // Create angular grid centered around the arc middle
-              const angularResolution = this.sharedSettings.angularResolution.value; // degrees per grid cell
-              const angularGridIndex = Math.floor(charRelativeAngle / angularResolution);
-
-              // Use polar-like coordinates: angular position and consistent row-based Y
-              // This creates concentric patterns that follow the arc's natural geometry
-              noiseX = angularGridIndex * this.sharedSettings.noiseScale.value * frequency;
-              noiseY = row * this.sharedSettings.noiseScale.value * frequency * this.sharedSettings.yScaleFactor.value;
-            } else {
-              // Use character index directly (creates skewed pattern)
-              noiseX = i * this.sharedSettings.noiseScale.value * frequency;
-              noiseY = row * this.sharedSettings.noiseScale.value * frequency * this.sharedSettings.yScaleFactor.value;
-            }
-            noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
-
-            amplitude *= this.sharedSettings.noisePersistence.value;
-            frequency *= this.sharedSettings.noiseLacunarity.value;
-          }
-
-          // Apply contrast to create sharper transitions
-          const contrast = this.sharedSettings.noiseContrast.value;
-          if (contrast !== 1.0) {
-            noiseValue = Math.sign(noiseValue) * Math.pow(Math.abs(noiseValue), contrast);
-          }
-
-          // Clamp noise value to ensure it's within expected range
-          noiseValue = Math.max(-1, Math.min(1, noiseValue));
-
-          // Map noise value (-1 to 1) to width range
-          let normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
-
-          // If inverse mapping is enabled, invert the normalized noise
-          if (this.sharedSettings.inverseWidthMapping.value) {
-            normalizedNoise = 1 - normalizedNoise;
-          }
-
-          // noiseValue = normalizedNoise;
-          // console.log('in: ', noiseValue);
-
-          // Use predefined width steps for CSS classes with bounds checking
-          const widthIndex = Math.floor(normalizedNoise * this.staticSettings.wdths.length);
-          const clampedIndex = Math.max(0, Math.min(this.staticSettings.wdths.length - 1, widthIndex));
-          width = this.staticSettings.wdths[clampedIndex];
-        } else {
-          // Random predefined width
-          width = this.staticSettings.wdths[rndInt(0, this.staticSettings.wdths.length - 1)];
-        }
-
-        // Calculate opacity based on width, row position, and raw noise value
-        // console.log('out: ', noiseValue);
-
-        const opacityClass = this.calculateOpacityClass(width, row, nRows, noiseValue);
-
-        // Set the width variation and opacity using CSS classes
-        span.setAttribute('class', `st0 width-${width} ${opacityClass}`);
-
-        span.textContent = fullText[i];
-        textPath.appendChild(span);
-      }
+      // Performance optimization: Create spans in batches and group by similar properties
+      const spans = this.createOptimizedSpans(fullText, row, nRows, arcStart, arcEnd);
+      
+      // Append all spans to textPath
+      spans.forEach(span => textPath.appendChild(span));
 
       text.appendChild(textPath);
       this.svg.stage.appendChild(text);
     }
+  }
+
+  createOptimizedSpans(fullText, row, nRows, arcStart, arcEnd) {
+    const spans = [];
+    const batchSize = 50; // Process characters in batches
+    
+    // Pre-calculate noise settings to avoid repeated property access
+    const noiseSettings = {
+      useNoise: this.staticSettings.useNoise,
+      hasNoise: !!this.noise,
+      octaves: this.sharedSettings.noiseOctaves.value,
+      angularNoise: this.sharedSettings.angularNoise.value,
+      angularResolution: this.sharedSettings.angularResolution.value,
+      noiseScale: this.sharedSettings.noiseScale.value,
+      yScaleFactor: this.sharedSettings.yScaleFactor.value,
+      persistence: this.sharedSettings.noisePersistence.value,
+      lacunarity: this.sharedSettings.noiseLacunarity.value,
+      contrast: this.sharedSettings.noiseContrast.value,
+      inverseMapping: this.sharedSettings.inverseWidthMapping.value
+    };
+
+    // Pre-calculate arc geometry
+    const totalArcAngle = Math.abs(arcEnd - arcStart);
+    const midAngle = totalArcAngle / 2;
+
+    for (let i = 0; i < fullText.length; i += batchSize) {
+      const fragment = document.createDocumentFragment();
+      const endIndex = Math.min(i + batchSize, fullText.length);
+      
+      for (let j = i; j < endIndex; j++) {
+        const span = document.createElementNS(this.svg.ns, 'tspan');
+        
+        // Calculate width and opacity for this character
+        const { width, opacityClass } = this.calculateCharacterProperties(
+          j, fullText.length, row, nRows, noiseSettings, totalArcAngle, midAngle
+        );
+        
+        // Set the width variation and opacity using CSS classes
+        span.setAttribute('class', `st0 width-${width} ${opacityClass}`);
+        span.textContent = fullText[j];
+        
+        fragment.appendChild(span);
+      }
+      
+      // Convert fragment children to array and add to spans
+      Array.from(fragment.children).forEach(span => spans.push(span));
+    }
+    
+    return spans;
+  }
+
+  calculateCharacterProperties(charIndex, totalChars, row, nRows, noiseSettings, totalArcAngle, midAngle) {
+    let width;
+    let noiseValue = 0;
+
+    if (noiseSettings.useNoise && noiseSettings.hasNoise) {
+      // Create multi-octave noise for more varied patterns
+      let amplitude = 1.0;
+      let frequency = 1.0;
+
+      for (let octave = 0; octave < noiseSettings.octaves; octave++) {
+        let noiseX, noiseY;
+
+        if (noiseSettings.angularNoise) {
+          // Character's angular position relative to arc center
+          const charRelativeAngle = (charIndex / totalChars) * totalArcAngle - midAngle;
+          const angularGridIndex = Math.floor(charRelativeAngle / noiseSettings.angularResolution);
+          
+          noiseX = angularGridIndex * noiseSettings.noiseScale * frequency;
+          noiseY = row * noiseSettings.noiseScale * frequency * noiseSettings.yScaleFactor;
+        } else {
+          noiseX = charIndex * noiseSettings.noiseScale * frequency;
+          noiseY = row * noiseSettings.noiseScale * frequency * noiseSettings.yScaleFactor;
+        }
+        
+        noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
+        amplitude *= noiseSettings.persistence;
+        frequency *= noiseSettings.lacunarity;
+      }
+
+      // Apply contrast
+      if (noiseSettings.contrast !== 1.0) {
+        noiseValue = Math.sign(noiseValue) * Math.pow(Math.abs(noiseValue), noiseSettings.contrast);
+      }
+
+      // Clamp and normalize
+      noiseValue = Math.max(-1, Math.min(1, noiseValue));
+      let normalizedNoise = (noiseValue + 1) / 2;
+
+      if (noiseSettings.inverseMapping) {
+        normalizedNoise = 1 - normalizedNoise;
+      }
+
+      // Map to width
+      const widthIndex = Math.floor(normalizedNoise * this.staticSettings.wdths.length);
+      const clampedIndex = Math.max(0, Math.min(this.staticSettings.wdths.length - 1, widthIndex));
+      width = this.staticSettings.wdths[clampedIndex];
+    } else {
+      // Random width
+      width = this.staticSettings.wdths[rndInt(0, this.staticSettings.wdths.length - 1)];
+    }
+
+    const opacityClass = this.calculateOpacityClass(width, row, nRows, noiseValue);
+    
+    return { width, opacityClass };
   }
 
   createRangeControl(key, config) {
@@ -1133,18 +1164,18 @@ class ArcSketchMulti {
     const slider = control.querySelector(`#layer${layerIndex}-${property}-slider`);
     const input = control.querySelector(`#layer${layerIndex}-${property}-input`);
     
-    // Link slider and input
+    // Link slider and input with optimized debouncing
     slider.addEventListener('input', (e) => {
       input.value = e.target.value;
       this.layers[layerIndex][property] = parseFloat(e.target.value);
-      this.updateSketch();
+      this.debouncedUpdateSketch(true); // Use faster delay for sliders
       if (!this.isInitializing) this.saveSettings();
     });
     
     input.addEventListener('input', (e) => {
       slider.value = e.target.value;
       this.layers[layerIndex][property] = parseFloat(e.target.value);
-      this.updateSketch();
+      this.debouncedUpdateSketch(false); // Use slower delay for text inputs
       if (!this.isInitializing) this.saveSettings();
     });
 
@@ -1169,14 +1200,14 @@ class ArcSketchMulti {
     colorInput.addEventListener('input', (e) => {
       colorText.value = e.target.value;
       this.layers[layerIndex][property] = e.target.value;
-      this.updateSketch();
+      this.debouncedUpdateSketch();
       if (!this.isInitializing) this.saveSettings();
     });
     
     colorText.addEventListener('input', (e) => {
       colorInput.value = e.target.value;
       this.layers[layerIndex][property] = e.target.value;
-      this.updateSketch();
+      this.debouncedUpdateSketch();
       if (!this.isInitializing) this.saveSettings();
     });
 
@@ -1198,7 +1229,7 @@ class ArcSketchMulti {
     
     checkbox.addEventListener('change', (e) => {
       this.layers[layerIndex][property] = e.target.checked;
-      this.updateSketch();
+      this.debouncedUpdateSketch();
       if (!this.isInitializing) this.saveSettings();
     });
 
@@ -1223,14 +1254,14 @@ class ArcSketchMulti {
     colorInput.addEventListener('input', (e) => {
       colorText.value = e.target.value;
       this.backgroundColor = e.target.value;
-      this.updateSketch();
+      this.debouncedUpdateSketch();
       if (!this.isInitializing) this.saveSettings();
     });
     
     colorText.addEventListener('input', (e) => {
       colorInput.value = e.target.value;
       this.backgroundColor = e.target.value;
-      this.updateSketch();
+      this.debouncedUpdateSketch();
       if (!this.isInitializing) this.saveSettings();
     });
 
@@ -1317,7 +1348,33 @@ class ArcSketchMulti {
     }
   }
 
+  debouncedUpdateSketch(useSliderDelay = false) {
+    // Cancel any pending update
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+    }
+    
+    // Use shorter delay for sliders, longer for text inputs
+    const delay = useSliderDelay ? this.sliderDebounceDelay : this.debounceDelay;
+    
+    // Schedule new update with requestAnimationFrame for smoother performance
+    this.updateTimeout = setTimeout(() => {
+      requestAnimationFrame(() => {
+        this.updateSketch();
+      });
+    }, delay);
+  }
+
   updateSketch() {
+    // Clear any pending debounced update since we're updating now
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+      this.updateTimeout = null;
+    }
+
+    // Show loading indicator for longer operations
+    const startTime = performance.now();
+    
     // Update font size based on new number of rows across all layers
     this.updateFontSize();
 
@@ -1325,29 +1382,35 @@ class ArcSketchMulti {
     this.svg.stage.style['background-color'] = this.backgroundColor;
     this.createBackgroundRect();
 
-    // Clear existing text elements
-    const existingTexts = this.svg.stage.querySelectorAll('text');
-    existingTexts.forEach(text => text.remove());
-
-    // Clear existing reference lines and arcs (but preserve background)
-    const existingPaths = this.svg.stage.querySelectorAll('path:not(#background-rect)');
-    existingPaths.forEach(path => path.remove());
-    const existingLines = this.svg.stage.querySelectorAll('line:not(#background-rect)');
-    existingLines.forEach(line => line.remove());
-    const existingCircles = this.svg.stage.querySelectorAll('circle:not(#background-rect)');
-    existingCircles.forEach(circle => circle.remove());
-
-    // Clear existing arc paths and styles from defs
-    const existingDefPaths = this.defs.querySelectorAll('[id^="arc-path-"]');
-    existingDefPaths.forEach(path => path.remove());
-    const existingStyles = this.defs.querySelectorAll('style');
-    existingStyles.forEach(style => style.remove());
+    // Performance optimization: Use more efficient DOM clearing
+    this.clearExistingElements();
 
     // Recreate styles with updated font size and colors
     this.createWidthStyles();
 
     // Regenerate arc text with new settings (this will also redraw the cone outline)
     this.createArcText();
+    
+    // Log performance for debugging
+    const endTime = performance.now();
+    if (endTime - startTime > 100) { // Only log if update took more than 100ms
+      console.log(`Update took ${Math.round(endTime - startTime)}ms`);
+    }
+  }
+
+  clearExistingElements() {
+    // More efficient clearing - remove in batches and use fragment
+    const elementsToRemove = [
+      ...this.svg.stage.querySelectorAll('text'),
+      ...this.svg.stage.querySelectorAll('path:not(#background-rect)'),
+      ...this.svg.stage.querySelectorAll('line:not(#background-rect)'),
+      ...this.svg.stage.querySelectorAll('circle:not(#background-rect)'),
+      ...this.defs.querySelectorAll('[id^="arc-path-"]'),
+      ...this.defs.querySelectorAll('style')
+    ];
+    
+    // Remove all elements in one batch
+    elementsToRemove.forEach(element => element.remove());
   }
 
   cleanup() {
