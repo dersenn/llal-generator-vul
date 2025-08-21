@@ -56,12 +56,17 @@ class SketchManager {
         description: 'Rectangular text layout with horizontal paths'
       },
       {
-        name: 'circle-01',
-        displayName: 'Kreismuster',
-        class: CircleSketch,
-        description: 'Full circle text layout with inner/outer diameter controls'
+        name: 'rect-02-multi',
+        displayName: 'Flächenmuster (Multi-Color)',
+        class: RectSketchMulti,
+        description: 'Rectangular text layout with horizontal paths (Multi-Color)'
       },
-
+      // {
+      //   name: 'circle-01',
+      //   displayName: 'Kreismuster',
+      //   class: CircleSketch,
+      //   description: 'Full circle text layout with inner/outer diameter controls'
+      // },
       // {
       //   name: 'rect-01-animated',
       //   displayName: 'Flächenmuster (Animated)',

@@ -327,6 +327,11 @@ class RectSketch {
     // Flag to prevent auto-saving during initial setup
     this.isInitializing = true;
 
+    // Performance optimization: debounce update calls
+    this.updateTimeout = null;
+    this.debounceDelay = 150; // ms for text inputs
+    this.sliderDebounceDelay = 50; // ms for sliders (more responsive)
+
     // Initialize noise generator using the main seed system
     // Always use noise for all sketches
     this.originalNoiseSeed = this.seed ? Math.floor(this.seed.rnd() * 10000) : Math.floor(Math.random() * 10000);
@@ -715,83 +720,11 @@ class RectSketch {
       textPath.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `#${pathId}`);
       textPath.setAttribute('startOffset', this.controlSettings.centerText.value ? '50%' : '0%');
       
-      // Create individual tspans for each letter with width variations
-      for (let i = 0; i < fullText.length; i++) {
-        const span = document.createElementNS(this.svg.ns, 'tspan');
-        
-        // Use noise for width variations (always enabled)
-        let width;
-        let noiseValue = 0; // Initialize outside the if block
-        
-        if (this.staticSettings.useNoise && this.noise) {
-          // Create multi-octave noise for more varied patterns
-          let amplitude = 1.0;
-          let frequency = 1.0;
-          
-          for (let octave = 0; octave < this.controlSettings.noiseOctaves.value; octave++) {
-            let noiseX, noiseY;
-            
-            if (this.controlSettings.positionalNoise.value) {
-              // Center-based positional sampling using horizontal geometry
-              // Use proportional position relative to center for better consistency
-              // Character's position relative to center (-0.5 to 0.5, centered at 0)
-              const charRelativePosition = (i / fullText.length) - 0.5;
-              
-              // Create positional grid centered around the text middle
-              const positionalResolution = this.controlSettings.positionalResolution.value; // units per grid cell
-              const positionalGridIndex = Math.floor(charRelativePosition / positionalResolution);
-              
-              // Use grid-based coordinates: positional index and consistent row-based Y
-              // This creates consistent patterns that don't depend on character widths or text length
-              noiseX = positionalGridIndex * this.controlSettings.noiseScale.value * frequency;
-              noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
-            } else {
-              // Use character index directly (creates pattern that deteriorates with width variation)
-              noiseX = i * this.controlSettings.noiseScale.value * frequency;
-              noiseY = row * this.controlSettings.noiseScale.value * frequency * this.controlSettings.yScaleFactor.value;
-            }
-            
-            noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
-            
-            amplitude *= this.controlSettings.noisePersistence.value;
-            frequency *= this.controlSettings.noiseLacunarity.value;
-          }
-          
-          // Apply contrast to create sharper transitions
-          const contrast = this.controlSettings.noiseContrast.value;
-          if (contrast !== 1.0) {
-            noiseValue = Math.sign(noiseValue) * Math.pow(Math.abs(noiseValue), contrast);
-          }
-          
-          // Clamp noise value to ensure it's within expected range
-          noiseValue = Math.max(-1, Math.min(1, noiseValue));
-          
-          // Map noise value (-1 to 1) to width range
-          let normalizedNoise = (noiseValue + 1) / 2; // 0 to 1
-          
-          // If inverse mapping is enabled, invert the normalized noise
-          if (this.controlSettings.inverseWidthMapping.value) {
-            normalizedNoise = 1 - normalizedNoise;
-          }
-          
-          // Use predefined width steps for CSS classes with bounds checking
-          const widthIndex = Math.floor(normalizedNoise * this.staticSettings.wdths.length);
-          const clampedIndex = Math.max(0, Math.min(this.staticSettings.wdths.length - 1, widthIndex));
-          width = this.staticSettings.wdths[clampedIndex];
-        } else {
-          // Random predefined width
-          width = this.staticSettings.wdths[rndInt(0, this.staticSettings.wdths.length - 1)];
-        }
-        
-        // Calculate opacity based on width, row position, and raw noise value
-        const opacityClass = this.calculateOpacityClass(width, row, nRows, noiseValue);
-        
-        // Set the width variation and opacity using CSS classes
-        span.setAttribute('class', `st0 width-${width} ${opacityClass}`);
-        
-        span.textContent = fullText[i];
-        textPath.appendChild(span);
-      }
+      // Performance optimization: Create spans in batches and group by similar properties
+      const spans = this.createOptimizedSpans(fullText, row, nRows);
+      
+      // Append all spans to textPath
+      spans.forEach(span => textPath.appendChild(span));
       
       text.appendChild(textPath);
       this.svg.stage.appendChild(text);
@@ -818,18 +751,18 @@ class RectSketch {
     const input = control.querySelector(`#${key}-input`);
     const lock = control.querySelector(`#${key}-lock`);
     
-    // Link slider and input
+    // Link slider and input with optimized debouncing
     slider.addEventListener('input', (e) => {
       input.value = e.target.value;
       config.value = parseFloat(e.target.value);
-      this.updateSketch();
+      this.debouncedUpdateSketch(true); // Use faster delay for sliders
       if (!this.isInitializing) this.saveSettings();
     });
     
     input.addEventListener('input', (e) => {
       slider.value = e.target.value;
       config.value = parseFloat(e.target.value);
-      this.updateSketch();
+      this.debouncedUpdateSketch(false); // Use slower delay for text inputs
       if (!this.isInitializing) this.saveSettings();
     });
 
@@ -866,7 +799,7 @@ class RectSketch {
     
     select.addEventListener('change', (e) => {
       config.value = e.target.value;
-      this.updateSketch();
+      this.debouncedUpdateSketch();
       if (!this.isInitializing) this.saveSettings();
     });
 
@@ -904,7 +837,7 @@ class RectSketch {
       if (key === 'showAdvancedControls') {
         this.toggleAdvancedControls(e.target.checked);
       } else {
-        this.updateSketch();
+        this.debouncedUpdateSketch();
       }
       
       if (!this.isInitializing) this.saveSettings();
@@ -942,14 +875,14 @@ class RectSketch {
     colorInput.addEventListener('input', (e) => {
       colorText.value = e.target.value;
       config.value = e.target.value;
-      this.updateSketch();
+      this.debouncedUpdateSketch();
       if (!this.isInitializing) this.saveSettings();
     });
     
     colorText.addEventListener('input', (e) => {
       colorInput.value = e.target.value;
       config.value = e.target.value;
-      this.updateSketch();
+      this.debouncedUpdateSketch();
       if (!this.isInitializing) this.saveSettings();
     });
 
@@ -1043,7 +976,7 @@ class RectSketch {
     randomizeBtn.addEventListener('click', () => {
       this.randomizeSettings();
       this.updateControlsFromSettings(); // Update UI without touching lock states
-      this.updateSketch();
+      this.debouncedUpdateSketch();
       
       // Show feedback
       randomizeBtn.textContent = 'Randomized!';
@@ -1099,7 +1032,33 @@ class RectSketch {
     }
   }
 
+  debouncedUpdateSketch(useSliderDelay = false) {
+    // Cancel any pending update
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+    }
+    
+    // Use shorter delay for sliders, longer for text inputs
+    const delay = useSliderDelay ? this.sliderDebounceDelay : this.debounceDelay;
+    
+    // Schedule new update with requestAnimationFrame for smoother performance
+    this.updateTimeout = setTimeout(() => {
+      requestAnimationFrame(() => {
+        this.updateSketch();
+      });
+    }, delay);
+  }
+
   updateSketch() {
+    // Clear any pending debounced update since we're updating now
+    if (this.updateTimeout) {
+      clearTimeout(this.updateTimeout);
+      this.updateTimeout = null;
+    }
+
+    // Show loading indicator for longer operations
+    const startTime = performance.now();
+    
     // Update font size based on new number of rows
     this.updateFontSize();
     
@@ -1107,29 +1066,35 @@ class RectSketch {
     this.svg.stage.style['background-color'] = this.controlSettings.colBG.value;
     this.createBackgroundRect();
     
-    // Clear existing text elements
-    const existingTexts = this.svg.stage.querySelectorAll('text');
-    existingTexts.forEach(text => text.remove());
-    
-    // Clear existing reference lines and paths (but preserve background)
-    const existingPaths = this.svg.stage.querySelectorAll('path:not(#background-rect)');
-    existingPaths.forEach(path => path.remove());
-    const existingLines = this.svg.stage.querySelectorAll('line:not(#background-rect)');
-    existingLines.forEach(line => line.remove());
-    const existingRects = this.svg.stage.querySelectorAll('rect:not(#background-rect)');
-    existingRects.forEach(rect => rect.remove());
-    
-    // Clear existing paths and styles from defs
-    const existingDefPaths = this.defs.querySelectorAll('[id^="rect-path-"]');
-    existingDefPaths.forEach(path => path.remove());
-    const existingStyles = this.defs.querySelectorAll('style');
-    existingStyles.forEach(style => style.remove());
+    // Performance optimization: Use more efficient DOM clearing
+    this.clearExistingElements();
     
     // Recreate styles with updated font size and colors
     this.createWidthStyles();
     
     // Regenerate rect text with new settings
     this.createRectText();
+    
+    // Log performance for debugging
+    const endTime = performance.now();
+    if (endTime - startTime > 100) { // Only log if update took more than 100ms
+      console.log(`Update took ${Math.round(endTime - startTime)}ms`);
+    }
+  }
+
+  clearExistingElements() {
+    // More efficient clearing - remove in batches and use fragment
+    const elementsToRemove = [
+      ...this.svg.stage.querySelectorAll('text'),
+      ...this.svg.stage.querySelectorAll('path:not(#background-rect)'),
+      ...this.svg.stage.querySelectorAll('line:not(#background-rect)'),
+      ...this.svg.stage.querySelectorAll('rect:not(#background-rect)'),
+      ...this.defs.querySelectorAll('[id^="rect-path-"]'),
+      ...this.defs.querySelectorAll('style')
+    ];
+    
+    // Remove all elements in one batch
+    elementsToRemove.forEach(element => element.remove());
   }
 
   cleanup() {
@@ -1141,12 +1106,13 @@ class RectSketch {
 
   saveSettings() {
     try {
-      // Only save the actual values and locked states, not configuration metadata
+      // Only save the actual values, locked states, and hidden states, not configuration metadata
       const valuesToSave = {};
       Object.keys(this.controlSettings).forEach(key => {
         valuesToSave[key] = {
           value: this.controlSettings[key].value,
-          locked: this.controlSettings[key].locked
+          locked: this.controlSettings[key].locked,
+          hidden: this.controlSettings[key].hidden
         };
         // For shiftTextPattern, also preserve the current options array
         if (key === 'shiftTextPattern' && this.controlSettings[key].options) {
@@ -1158,7 +1124,7 @@ class RectSketch {
         controlSettings: valuesToSave
       };
       localStorage.setItem('rectSketchSettings', JSON.stringify(settingsData));
-      console.log('Settings saved successfully (values and locks only)');
+      console.log('Settings saved successfully (values, locks, and hidden states)');
     } catch (e) {
       console.error('Failed to save settings:', e);
     }
@@ -1169,18 +1135,21 @@ class RectSketch {
       const saved = localStorage.getItem('rectSketchSettings');
       if (saved) {
         const settingsData = JSON.parse(saved);
-        // Only restore values and locked states, preserve configuration metadata
+        // Only restore values, locked states, and hidden states, preserve configuration metadata
         if (settingsData.controlSettings) {
           Object.keys(settingsData.controlSettings).forEach(key => {
             if (this.controlSettings[key] && settingsData.controlSettings[key]) {
               const savedControl = settingsData.controlSettings[key];
               
-              // Only restore value and locked, preserve min/max/step/default from code
+              // Only restore value, locked, and hidden, preserve min/max/step/default from code
               if (savedControl.hasOwnProperty('value')) {
                 this.controlSettings[key].value = savedControl.value;
               }
               if (savedControl.hasOwnProperty('locked')) {
                 this.controlSettings[key].locked = savedControl.locked;
+              }
+              if (savedControl.hasOwnProperty('hidden')) {
+                this.controlSettings[key].hidden = savedControl.hidden;
               }
               
               // Special handling for shiftTextPattern options
@@ -1190,7 +1159,7 @@ class RectSketch {
             }
           });
         }
-        console.log('Settings loaded successfully (values and locks only, preserved ranges)');
+        console.log('Settings loaded successfully (values, locks, and hidden states, preserved ranges)');
       }
     } catch (e) {
       console.error('Failed to load settings:', e);
@@ -1201,12 +1170,13 @@ class RectSketch {
     // Store settings as a data attribute on the SVG element
     const svgElement = document.querySelector('svg');
     if (svgElement) {
-      // Only save values and locked states, not configuration metadata
+      // Only save values, locked states, and hidden states, not configuration metadata
       const valuesToSave = {};
       Object.keys(this.controlSettings).forEach(key => {
         valuesToSave[key] = {
           value: this.controlSettings[key].value,
-          locked: this.controlSettings[key].locked
+          locked: this.controlSettings[key].locked,
+          hidden: this.controlSettings[key].hidden
         };
         // For shiftTextPattern, also preserve the current options array
         if (key === 'shiftTextPattern' && this.controlSettings[key].options) {
@@ -1258,17 +1228,20 @@ class RectSketch {
               
               // Handle both old format and new format
               if (settingsData.controlSettings) {
-                // New format - only restore values and locked states, preserve configuration metadata
+                // New format - only restore values, locked states, and hidden states, preserve configuration metadata
                 Object.keys(settingsData.controlSettings).forEach(key => {
                   if (this.controlSettings[key] && settingsData.controlSettings[key]) {
                     const savedControl = settingsData.controlSettings[key];
                     
-                    // Only restore value and locked, preserve min/max/step/default from code
+                    // Only restore value, locked, and hidden, preserve min/max/step/default from code
                     if (savedControl.hasOwnProperty('value')) {
                       this.controlSettings[key].value = savedControl.value;
                     }
                     if (savedControl.hasOwnProperty('locked')) {
                       this.controlSettings[key].locked = savedControl.locked;
+                    }
+                    if (savedControl.hasOwnProperty('hidden')) {
+                      this.controlSettings[key].hidden = savedControl.hidden;
                     }
                     
                     // Special handling for shiftTextPattern options
@@ -1311,11 +1284,11 @@ class RectSketch {
               this.showAdvancedControls = this.controlSettings.showAdvancedControls.value;
               
               // Update UI controls to reflect loaded values
-              this.restoreControlsFromSettings();
+              this.refreshControlsPanel();
               
               this.updateSketch();
               this.updateHashDisplay(); // Update the displayed hash
-              console.log('Settings and seed loaded from SVG file (values and locks only, preserved ranges)');
+              console.log('Settings and seed loaded from SVG file (values, locks, and hidden states only, preserved ranges)');
             } else {
               console.log('No settings found in SVG file');
             }
@@ -1333,12 +1306,13 @@ class RectSketch {
   }
 
   resetToDefaults() {
-    // Reset all control settings to their original values and lock states
+    // Reset all control settings to their original values, lock states, and hidden states
     Object.keys(this.controlSettings).forEach(key => {
       if (this.originalControlSettings[key]) {
-        // Restore both value and locked state from the original configuration
+        // Restore value, locked state, and hidden state from the original configuration
         this.controlSettings[key].value = this.originalControlSettings[key].value;
         this.controlSettings[key].locked = this.originalControlSettings[key].locked;
+        this.controlSettings[key].hidden = this.originalControlSettings[key].hidden;
       }
     });
 
@@ -1355,7 +1329,7 @@ class RectSketch {
     this.isInitializing = false;
 
     // Update UI controls to reflect reset values
-    this.restoreControlsFromSettings();
+    this.refreshControlsPanel();
 
     // Update sketch with reset values
     this.updateSketch();
@@ -1625,6 +1599,115 @@ class RectSketch {
           break;
       }
     });
+  }
+
+  createOptimizedSpans(fullText, row, nRows) {
+    const spans = [];
+    const batchSize = 50; // Process characters in batches
+    
+    // Pre-calculate noise settings to avoid repeated property access
+    const noiseSettings = {
+      useNoise: this.staticSettings.useNoise,
+      hasNoise: !!this.noise,
+      octaves: this.controlSettings.noiseOctaves.value,
+      positionalNoise: this.controlSettings.positionalNoise.value,
+      positionalResolution: this.controlSettings.positionalResolution.value,
+      noiseScale: this.controlSettings.noiseScale.value,
+      yScaleFactor: this.controlSettings.yScaleFactor.value,
+      persistence: this.controlSettings.noisePersistence.value,
+      lacunarity: this.controlSettings.noiseLacunarity.value,
+      contrast: this.controlSettings.noiseContrast.value,
+      inverseMapping: this.controlSettings.inverseWidthMapping.value
+    };
+
+    for (let i = 0; i < fullText.length; i += batchSize) {
+      const fragment = document.createDocumentFragment();
+      const endIndex = Math.min(i + batchSize, fullText.length);
+      
+      for (let j = i; j < endIndex; j++) {
+        const span = document.createElementNS(this.svg.ns, 'tspan');
+        
+        // Calculate width and opacity for this character
+        const { width, opacityClass } = this.calculateCharacterProperties(
+          j, fullText.length, row, nRows, noiseSettings
+        );
+        
+        // Set the width variation and opacity using CSS classes
+        span.setAttribute('class', `st0 width-${width} ${opacityClass}`);
+        span.textContent = fullText[j];
+        
+        fragment.appendChild(span);
+      }
+      
+      // Convert fragment children to array and add to spans
+      Array.from(fragment.children).forEach(span => spans.push(span));
+    }
+    
+    return spans;
+  }
+
+  calculateCharacterProperties(charIndex, totalChars, row, nRows, noiseSettings) {
+    let width;
+    let noiseValue = 0;
+
+    if (noiseSettings.useNoise && noiseSettings.hasNoise) {
+      // Create multi-octave noise for more varied patterns
+      let amplitude = 1.0;
+      let frequency = 1.0;
+
+      for (let octave = 0; octave < noiseSettings.octaves; octave++) {
+        let noiseX, noiseY;
+
+        if (noiseSettings.positionalNoise) {
+          // Center-based positional sampling using horizontal geometry
+          // Use proportional position relative to center for better consistency
+          // Character's position relative to center (-0.5 to 0.5, centered at 0)
+          const charRelativePosition = (charIndex / totalChars) - 0.5;
+          
+          // Create positional grid centered around the text middle
+          const positionalResolution = noiseSettings.positionalResolution; // units per grid cell
+          const positionalGridIndex = Math.floor(charRelativePosition / positionalResolution);
+          
+          // Use grid-based coordinates: positional index and consistent row-based Y
+          // This creates consistent patterns that don't depend on character widths or text length
+          noiseX = positionalGridIndex * noiseSettings.noiseScale * frequency;
+          noiseY = row * noiseSettings.noiseScale * frequency * noiseSettings.yScaleFactor;
+        } else {
+          // Use character index directly (creates pattern that deteriorates with width variation)
+          noiseX = charIndex * noiseSettings.noiseScale * frequency;
+          noiseY = row * noiseSettings.noiseScale * frequency * noiseSettings.yScaleFactor;
+        }
+        
+        noiseValue += this.noise.noise2D(noiseX, noiseY) * amplitude;
+        amplitude *= noiseSettings.persistence;
+        frequency *= noiseSettings.lacunarity;
+      }
+
+      // Apply contrast
+      if (noiseSettings.contrast !== 1.0) {
+        noiseValue = Math.sign(noiseValue) * Math.pow(Math.abs(noiseValue), noiseSettings.contrast);
+      }
+
+      // Clamp and normalize
+      noiseValue = Math.max(-1, Math.min(1, noiseValue));
+      let normalizedNoise = (noiseValue + 1) / 2;
+
+      if (noiseSettings.inverseMapping) {
+        normalizedNoise = 1 - normalizedNoise;
+      }
+
+      // Map to width
+      const widthIndex = Math.floor(normalizedNoise * this.staticSettings.wdths.length);
+      const clampedIndex = Math.max(0, Math.min(this.staticSettings.wdths.length - 1, widthIndex));
+      width = this.staticSettings.wdths[clampedIndex];
+    } else {
+      // Random width
+      width = this.staticSettings.wdths[rndInt(0, this.staticSettings.wdths.length - 1)];
+    }
+
+    const opacityClass = this.calculateOpacityClass(width, row, nRows, noiseValue);
+    
+    return { width, opacityClass };
   }
 
   refreshControlsPanel() {
