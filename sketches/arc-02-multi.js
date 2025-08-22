@@ -96,7 +96,7 @@ class ArcSketchMulti {
     };
 
     // Single background color for the entire sketch
-    this.backgroundColor = '#381C4A';
+    this.backgroundColor = '#ffffff';
 
     // Initialize layers with default settings
     this.layers = [];
@@ -112,7 +112,7 @@ class ArcSketchMulti {
       name: `Layer 2`,
       visible: true,
       nRows: 72,
-      colFG: '#FFFFFF'
+      colFG: '#381C4A'
     });
     this.layers.push({
       id: `layer-3`,
@@ -361,6 +361,7 @@ class ArcSketchMulti {
         // Store original default settings before any modifications
     this.originalSharedSettings = JSON.parse(JSON.stringify(this.sharedSettings));
     this.originalLayers = JSON.parse(JSON.stringify(this.layers));
+    this.originalBackgroundColor = this.backgroundColor;
     
     // Load saved settings if available
     this.loadSettings();
@@ -1304,32 +1305,49 @@ class ArcSketchMulti {
       values.append(fgColorControl);
     });
 
-    // Add randomize button
-    const randomizeBtn = document.createElement('a');
-    randomizeBtn.classList.add('btn');
-    randomizeBtn.setAttribute('id', 'btnrandomize');
-    randomizeBtn.append('Randomize Layers');
-
     const btnLi = document.createElement('li');
     btnLi.append(reloadBtn);
     values.append(btnLi);
 
-    const randomizeLi = document.createElement('li');
-    randomizeLi.append(randomizeBtn);
-    values.append(randomizeLi);
+    // Add action buttons (randomize and reset)
+    const actionButtonsLi = document.createElement('li');
+    actionButtonsLi.innerHTML = `
+      <div class="control-button-group">
+        <button id="randomize-layers-btn" class="btn">Randomize Layers</button>
+        <button id="reset-layers-btn" class="btn secondary">Reset Layers</button>
+      </div>
+    `;
+    values.append(actionButtonsLi);
 
     this.controlsContainer.append(values);
 
     reloadBtn.addEventListener('click', () => this.newSketch());
-    randomizeBtn.addEventListener('click', () => {
+    
+    // Get the new button elements from the control group
+    const randomizeLayersBtn = actionButtonsLi.querySelector('#randomize-layers-btn');
+    const resetLayersBtn = actionButtonsLi.querySelector('#reset-layers-btn');
+    
+    randomizeLayersBtn.addEventListener('click', () => {
       this.randomizeSettings();
       this.updateControlsFromSettings();
       this.updateSketch();
       
       // Show feedback
-      randomizeBtn.textContent = 'Randomized!';
+      randomizeLayersBtn.textContent = 'Randomized!';
       setTimeout(() => {
-        randomizeBtn.textContent = 'Randomize Layers';
+        randomizeLayersBtn.textContent = 'Randomize Layers';
+      }, 1000);
+    });
+
+    resetLayersBtn.addEventListener('click', () => {
+      this.resetLayersToDefaults();
+      this.updateControlsFromSettings();
+      this.updateSketch();
+      
+      // Show feedback
+      resetLayersBtn.textContent = 'Reset!';
+      setTimeout(() => {
+        resetLayersBtn.textContent = 'Reset Layers';
       }, 1000);
     });
   }
@@ -1739,6 +1757,25 @@ class ArcSketchMulti {
       // Keep background white for now (could randomize if desired)
       // layer.colBG = '#ffffff';
     });
+  }
+
+  resetLayersToDefaults() {
+    // Reset layers to their original default values
+    this.layers = JSON.parse(JSON.stringify(this.originalLayers));
+    
+    // Reset background color to original default
+    this.backgroundColor = this.originalBackgroundColor;
+    
+    // Update background color controls in UI
+    const bgColorInput = document.getElementById('background-color-input');
+    const bgColorText = document.getElementById('background-color-text');
+    if (bgColorInput && bgColorText) {
+      bgColorInput.value = this.backgroundColor;
+      bgColorText.value = this.backgroundColor;
+    }
+    
+    // Save the reset state
+    if (!this.isInitializing) this.saveSettings();
   }
 
   updateControlsFromSettings() {
