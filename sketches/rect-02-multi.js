@@ -104,7 +104,7 @@ class RectSketchMulti {
         show: true,
         color: '#0f0',
         width: 1,
-        opacity: .3
+        opacity: 1
       }
     };
 
