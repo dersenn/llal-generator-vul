@@ -1044,22 +1044,21 @@ class RectSketchMulti {
       values.append(fgColorControl);
     });
 
-    const btnLi = document.createElement('li');
-    btnLi.append(reloadBtn);
-
-
-    values.append(btnLi);
-
-
-    // Add action buttons (randomize and reset)
+    // Add action buttons (randomize, reset, and download)
     const actionButtonsLi = document.createElement('li');
     actionButtonsLi.innerHTML = `
       <div class="control-button-group">
         <button id="randomize-layers-btn" class="btn">Randomize Layers</button>
         <button id="reset-layers-btn" class="btn secondary">Reset Layers</button>
+        <button id="download-btn" class="btn secondary">Download SVG [d]</button>
       </div>
     `;
     values.append(actionButtonsLi);
+
+    // Add New Seed button (full width)
+    const btnLi = document.createElement('li');
+    btnLi.append(reloadBtn);
+    values.append(btnLi);
 
     this.controlsContainer.append(values);
 
@@ -1069,6 +1068,7 @@ class RectSketchMulti {
     // Get the new button elements from the control group
     const randomizeLayersBtn = actionButtonsLi.querySelector('#randomize-layers-btn');
     const resetLayersBtn = actionButtonsLi.querySelector('#reset-layers-btn');
+    const downloadBtn = actionButtonsLi.querySelector('#download-btn');
     
     randomizeLayersBtn.addEventListener('click', () => {
       this.randomizeSettings();
@@ -1091,6 +1091,17 @@ class RectSketchMulti {
       resetLayersBtn.textContent = 'Reset!';
       setTimeout(() => {
         resetLayersBtn.textContent = 'Reset Layers';
+      }, 1000);
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      // Use the existing save functionality (same as 'd' keystroke)
+      this.saveWithSettings();
+      
+      // Show feedback
+      downloadBtn.textContent = 'Downloaded!';
+      setTimeout(() => {
+        downloadBtn.textContent = 'Download SVG';
       }, 1000);
     });
   }

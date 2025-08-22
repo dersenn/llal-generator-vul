@@ -106,7 +106,7 @@ class ArcSketch {
         step: 1,
         default: 144,
         value: 144,
-        locked: true,
+        locked: false,
         hidden: false
       },
       lineSpacing: {
@@ -179,7 +179,7 @@ class ArcSketch {
         step: 0.001,
         default: 0.06,
         value: 0.06,
-        locked: true,
+        locked: false,
         hidden: false
       },
       noiseOctaves: {
@@ -190,7 +190,7 @@ class ArcSketch {
         step: 1,
         default: 4,
         value: 4,
-        locked: true,
+        locked: false,
         hidden: false
       },
       noisePersistence: {
@@ -201,7 +201,7 @@ class ArcSketch {
         step: 0.1,
         default: 0.2,
         value: 0.2,
-        locked: true,
+        locked: false,
         hidden: false
       },
       noiseContrast: {
