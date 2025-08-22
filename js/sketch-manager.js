@@ -44,6 +44,12 @@ class SketchManager {
         description: 'Arc text layout with cone pattern (Multi-Color)'
       },
       {
+        name: 'rect-02-multi',
+        displayName: 'Flächenmuster (Multi-Color)',
+        class: RectSketchMulti,
+        description: 'Rectangular text layout with horizontal paths (Multi-Color)'
+      },
+      {
         name: 'arc-01',
         displayName: 'Vulkanmuster',
         class: ArcSketch,
@@ -54,13 +60,7 @@ class SketchManager {
         displayName: 'Flächenmuster',
         class: RectSketch,
         description: 'Rectangular text layout with horizontal paths'
-      },
-      {
-        name: 'rect-02-multi',
-        displayName: 'Flächenmuster (Multi-Color)',
-        class: RectSketchMulti,
-        description: 'Rectangular text layout with horizontal paths (Multi-Color)'
-      },
+      }
       // {
       //   name: 'circle-01',
       //   displayName: 'Kreismuster',

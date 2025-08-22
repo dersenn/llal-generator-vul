@@ -1046,7 +1046,10 @@ class RectSketchMulti {
 
     const btnLi = document.createElement('li');
     btnLi.append(reloadBtn);
+
+
     values.append(btnLi);
+
 
     // Add action buttons (randomize and reset)
     const actionButtonsLi = document.createElement('li');
@@ -1059,6 +1062,7 @@ class RectSketchMulti {
     values.append(actionButtonsLi);
 
     this.controlsContainer.append(values);
+
 
     reloadBtn.addEventListener('click', () => this.newSketch());
     
